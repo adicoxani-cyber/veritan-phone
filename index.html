@@ -11,14 +11,14 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   html { -webkit-text-size-adjust: 100%; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f4f4f0; color: #1a1a1a; padding-bottom: 40px; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f4f4f0; color: #1a1a1a; padding-bottom: 90px; }
   .top { position: sticky; top: 0; z-index: 5; background: #1a1a1a; color: #fff; padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-  .top .brand { font-size: 17px; font-weight: 800; letter-spacing: .02em; }
+  .top .brand { font-size: 17px; font-weight: 800; }
   .top .brand b { color: #FEDC39; }
   .top button { background: rgba(255,255,255,.12); border: none; color: #fff; border-radius: 9999px; padding: 8px 14px; font-size: 14px; font-family: inherit; font-weight: 700; }
   .age { font-size: 11px; color: rgba(255,255,255,.55); margin-top: 2px; }
-  .tabs { display: flex; background: #fff; border-bottom: 1px solid #e6e6e2; position: sticky; top: 0; z-index: 4; }
-  .tabs button { flex: 1; background: none; border: none; padding: 13px 4px 11px; font-size: 13.5px; font-weight: 800; color: #999; font-family: inherit; border-bottom: 2.5px solid transparent; }
+  .tabs { display: flex; background: #fff; border-bottom: 1px solid #e6e6e2; position: sticky; top: 0; z-index: 4; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tabs button { flex: 1 0 auto; background: none; border: none; padding: 13px 12px 11px; font-size: 13px; font-weight: 800; color: #999; font-family: inherit; border-bottom: 2.5px solid transparent; white-space: nowrap; }
   .tabs button.on { color: #1a1a1a; border-bottom-color: #FEDC39; }
   .wrap { padding: 14px 14px 0; max-width: 560px; margin: 0 auto; }
   .card { background: #fff; border: 1px solid #ebebe7; border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; }
@@ -29,24 +29,45 @@
   .b { flex: 1; border: none; border-radius: 10px; padding: 11px 8px; font-size: 13.5px; font-weight: 800; font-family: inherit; }
   .b-done { background: #e8f5ee; color: #1a8a55; }
   .b-fail { background: #fdecec; color: #c62828; }
-  .badge { display: inline-block; font-size: 11px; font-weight: 800; border-radius: 9999px; padding: 3px 10px; margin-bottom: 6px; }
+  .b-edit { background: #f0f0ec; color: #444; flex: 0 0 52px; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 800; border-radius: 9999px; padding: 3px 10px; margin: 0 4px 6px 0; }
   .bg-in { background: #e8f5ee; color: #1a8a55; }
   .bg-out { background: #fdecec; color: #c62828; }
   .bg-unk { background: #fff4e0; color: #b46b00; }
   .bg-done { background: #f0f0ec; color: #999; }
+  .bg-new { background: #e8f0fd; color: #2456a8; }
   .sec { font-size: 11.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #a5a5a0; margin: 18px 2px 8px; }
-  .empty { text-align: center; color: #b5b5b0; font-size: 13px; padding: 40px 20px; }
+  .empty { text-align: center; color: #b5b5b0; font-size: 13px; padding: 40px 20px; line-height: 1.6; }
   .fab { position: fixed; right: 18px; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); width: 58px; height: 58px; border-radius: 50%; background: #1a1a1a; color: #FEDC39; font-size: 30px; border: none; box-shadow: 0 8px 24px rgba(0,0,0,.28); z-index: 6; }
   .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 7; display: none; }
-  .sheet { position: fixed; left: 0; right: 0; bottom: 0; background: #fff; border-radius: 18px 18px 0 0; padding: 18px 16px calc(env(safe-area-inset-bottom, 0px) + 18px); z-index: 8; display: none; }
+  .sheet { position: fixed; left: 0; right: 0; bottom: 0; max-height: 88vh; overflow-y: auto; background: #fff; border-radius: 18px 18px 0 0; padding: 18px 16px calc(env(safe-area-inset-bottom, 0px) + 18px); z-index: 8; display: none; }
   .sheet h3 { font-size: 16px; font-weight: 800; margin-bottom: 12px; }
   .sheet label { display: block; font-size: 11.5px; font-weight: 800; color: #777; margin: 10px 0 4px; }
-  .sheet input, .sheet textarea { width: 100%; font-family: inherit; font-size: 15px; padding: 11px 12px; border: 1px solid #ddd; border-radius: 10px; outline: none; background: #fafaf8; }
-  .sheet .save { width: 100%; margin-top: 16px; background: #1a1a1a; color: #FEDC39; border: none; border-radius: 12px; padding: 14px; font-size: 15px; font-weight: 800; font-family: inherit; }
+  .sheet input, .sheet textarea, .sheet select { width: 100%; font-family: inherit; font-size: 15px; padding: 11px 12px; border: 1px solid #ddd; border-radius: 10px; outline: none; background: #fafaf8; }
+  .chk { display: flex; align-items: center; gap: 10px; margin-top: 12px; font-size: 14px; font-weight: 700; }
+  .chk input { width: 20px; height: 20px; accent-color: #1a1a1a; }
+  .save { width: 100%; margin-top: 16px; background: #1a1a1a; color: #FEDC39; border: none; border-radius: 12px; padding: 14px; font-size: 15px; font-weight: 800; font-family: inherit; }
+  .danger { width: 100%; margin-top: 8px; background: #fdecec; color: #c62828; border: none; border-radius: 12px; padding: 12px; font-size: 14px; font-weight: 800; font-family: inherit; }
+  .ghost { width: 100%; margin-top: 8px; background: #f0f0ec; color: #444; border: none; border-radius: 12px; padding: 12px; font-size: 14px; font-weight: 800; font-family: inherit; }
   .note { font-size: 11.5px; color: #999; line-height: 1.5; margin-top: 8px; }
   .pending { opacity: .55; }
   .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(env(safe-area-inset-bottom, 0px) + 90px); background: #1a1a1a; color: #fff; font-size: 13px; font-weight: 700; border-radius: 9999px; padding: 10px 20px; z-index: 9; opacity: 0; transition: opacity .3s; pointer-events: none; max-width: 88vw; text-align: center; }
   .gear { background: none; border: none; color: rgba(255,255,255,.6); font-size: 18px; padding: 4px; }
+  .search { width: 100%; font-family: inherit; font-size: 15px; padding: 12px 14px; border: 1px solid #ddd; border-radius: 12px; outline: none; background: #fff; margin-bottom: 10px; }
+  .wrow { display: flex; justify-content: space-between; align-items: center; background: #fff; border: 1px solid #ebebe7; border-radius: 12px; padding: 10px 14px; margin-bottom: 7px; gap: 10px; }
+  .wrow .wc { font-size: 13px; font-weight: 800; color: #0a6e8a; flex-shrink: 0; }
+  .wrow .wn { font-size: 12px; color: #666; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wrow .ww { font-size: 14px; font-weight: 800; flex-shrink: 0; }
+  .frow { display: flex; justify-content: space-between; font-size: 13.5px; padding: 7px 2px; border-bottom: 1px solid #f2f2ee; }
+  .frow b { font-variant-numeric: tabular-nums; }
+  .ftotal { display: flex; justify-content: space-between; font-size: 17px; font-weight: 800; padding: 12px 2px 2px; }
+  .chip { display: inline-block; border: 1px solid #ddd; background: #fff; border-radius: 9999px; padding: 7px 14px; font-size: 12.5px; font-weight: 800; color: #777; font-family: inherit; margin: 0 6px 8px 0; }
+  .chip.on { background: #1a1a1a; color: #FEDC39; border-color: #1a1a1a; }
+  .oit { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; padding: 6px 0; border-bottom: 1px solid #f4f4f0; }
+  .oit .n { flex: 1; line-height: 1.35; }
+  .oit .q { flex-shrink: 0; color: #777; font-variant-numeric: tabular-nums; }
+  textarea.codes { width: 100%; font-family: Menlo, monospace; font-size: 13px; padding: 12px; border: 1px solid #ddd; border-radius: 12px; outline: none; background: #fff; min-height: 110px; }
+  .res { display: flex; justify-content: space-between; align-items: center; background: #fff; border: 1px solid #ebebe7; border-radius: 10px; padding: 8px 12px; margin-bottom: 6px; font-size: 13px; }
 </style>
 </head>
 <body>
@@ -58,7 +79,7 @@
   </div>
   <div style="display:flex;align-items:center;gap:6px;">
     <button class="gear" onclick="openCfg()">⚙️</button>
-    <button onclick="refresh()" id="refBtn">🔄 Обновить</button>
+    <button onclick="refresh()" id="refBtn">🔄</button>
   </div>
 </div>
 
@@ -66,23 +87,35 @@
   <button id="tb-tasks" class="on" onclick="setTab('tasks')">📋 Задачи</button>
   <button id="tb-stock" onclick="setTab('stock')">🔔 Наличие</button>
   <button id="tb-orders" onclick="setTab('orders')">🛒 Заказы</button>
+  <button id="tb-weights" onclick="setTab('weights')">⚖️ Веса</button>
+  <button id="tb-fan" onclick="setTab('fan')">📦 FAN</button>
+  <button id="tb-check" onclick="setTab('check')">✓ Проверка</button>
 </div>
 
 <div class="wrap" id="main"><div class="empty">Загружаю…</div></div>
 
-<button class="fab" id="fab" onclick="openAdd()">+</button>
+<button class="fab" id="fab" onclick="openEdit(null)">+</button>
 
 <div class="sheet-bg" id="sheetBg" onclick="closeSheets()"></div>
 
-<!-- Add task -->
-<div class="sheet" id="addSheet">
-  <h3>Новая задача</h3>
+<!-- Task edit (full) -->
+<div class="sheet" id="editSheet">
+  <h3 id="esTitle">Новая задача</h3>
   <label>Заголовок *</label><input id="fTitle" placeholder="De sunat când…">
   <label>Телефон клиента</label><input id="fPhone" inputmode="tel" placeholder="+373 …">
   <label>Код товара</label><input id="fCode" placeholder="12.4018">
+  <label>Ссылка товара (для отслеживания наличия)</label><input id="fLink" placeholder="https://www.veritan.md/…">
+  <label>Ссылка в админке (количество со склада)</label><input id="fAdmin" placeholder="https://www.veritan.md/ru/back/goods/…">
+  <label>Нужное количество клиенту</label><input id="fNeed" inputmode="numeric" placeholder="пусто = уведомить при появлении">
+  <div class="chk"><input type="checkbox" id="fWatch"><span>🔔 Следить за наличием</span></div>
+  <label>Срок (дедлайн)</label><input id="fDeadline" type="datetime-local">
+  <label>Приоритет</label><select id="fPriority"><option value="high">Высокий</option><option value="normal" selected>Обычный</option><option value="low">Низкий</option></select>
+  <label>Напоминать</label><select id="fRemind"><option value="0">Без напоминаний</option><option value="30">Каждые 30 мин</option><option value="60">Каждый час</option><option value="180">Каждые 3 ч</option><option value="1440" selected>Раз в день</option></select>
   <label>Заметка</label><textarea id="fDesc" rows="2" placeholder="Детали…"></textarea>
-  <button class="save" onclick="addTask()">Сохранить задачу</button>
-  <div class="note">Задача попадёт на компьютер при ближайшей синхронизации (обычно до 5 минут).</div>
+  <button class="save" onclick="saveTask()">Сохранить</button>
+  <button class="ghost" id="esReopen" style="display:none;" onclick="reopenTask()">↩ Вернуть в работу</button>
+  <button class="danger" id="esDelete" style="display:none;" onclick="deleteTask()">🗑 Удалить задачу</button>
+  <div class="note">Изменения попадут на компьютер при ближайшей синхронизации (до 5 минут).</div>
 </div>
 
 <!-- Settings -->
@@ -100,27 +133,26 @@
 (function () {
   'use strict';
   var API = 'https://api.github.com';
-  var state = null;       // last snapshot from the computer
-  var tab = 'tasks';
-  var cfg = null;         // { t: token, g: gistId }
+  var state = null, tab = 'tasks', cfg = null, editId = null;
+  var ordFilter = 'all', ordOpen = {}, checkFilter = 'all';
+  var fanWeights = [];   // [{label, kg}] rows added on the FAN tab
+  var FAN_DEF = { ramburs: 15, zone: 55, surchargeFixed: 0, surchargePercent: 7, baseWeight: 1, extraRate: 6, rounding: 'nearest', surchargeOnExtra: true };
+  var ORD_STATUSES = [
+    { v: 'checkout', t: 'Оформлен' }, { v: 'cancelled', t: 'Отменен' }, { v: 'approved', t: 'Подтвержден' },
+    { v: 'finished', t: 'Закончен' }, { v: 'delivery', t: 'В доставке' }, { v: 'inproccess', t: 'В процессе' }
+  ];
 
-  // ── config: from #cfg= fragment (link generated by the extension) or localStorage ──
   function loadCfg() {
     try {
-      var h = location.hash || '';
-      var m = h.match(/#cfg=([A-Za-z0-9+/=]+)/);
+      var m = (location.hash || '').match(/#cfg=([A-Za-z0-9+/=]+)/);
       if (m) {
         var c = JSON.parse(atob(m[1]));
-        if (c && c.t && c.g) {
-          localStorage.setItem('vp_cfg', JSON.stringify(c));
-          history.replaceState(null, '', location.pathname + location.search);   // strip the secret from the URL
-        }
+        if (c && c.t && c.g) { localStorage.setItem('vp_cfg', JSON.stringify(c)); history.replaceState(null, '', location.pathname + location.search); }
       }
     } catch (e) {}
     try { cfg = JSON.parse(localStorage.getItem('vp_cfg') || 'null'); } catch (e) { cfg = null; }
     if (cfg && (!cfg.t || !cfg.g)) cfg = null;
   }
-
   function toast(t) {
     var el = document.getElementById('toast');
     el.textContent = t; el.style.opacity = '1';
@@ -128,6 +160,7 @@
   }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function telHref(p) { return 'tel:' + String(p || '').replace(/[^+\d]/g, ''); }
+  function num(v) { var n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isFinite(n) ? n : 0; }
   function agoText(ms) {
     var s = Math.floor((Date.now() - ms) / 1000);
     if (s < 90) return 'только что';
@@ -135,8 +168,6 @@
     if (s < 86400) return Math.floor(s / 3600) + ' ч назад';
     return Math.floor(s / 86400) + ' дн назад';
   }
-
-  // ── gist I/O ──
   function gh(method, path, body) {
     return fetch(API + path, {
       method: method,
@@ -146,14 +177,13 @@
   }
   function fetchState() {
     return gh('GET', '/gists/' + cfg.g).then(function (r) {
-      if (r.status !== 200 || !r.json || !r.json.files) throw new Error('gist ' + r.status);
+      if (r.status !== 200 || !r.json || !r.json.files) throw new Error('облако ' + r.status);
       var f = r.json.files['state.json'];
-      if (!f) throw new Error('нет state.json');
+      if (!f) throw new Error('нет данных');
       if (f.truncated && f.raw_url) return fetch(f.raw_url).then(function (rr) { return rr.json(); });
       try { return JSON.parse(f.content || '{}'); } catch (e) { return {}; }
     });
   }
-  // ops queue: survives offline, re-sent on every refresh until accepted
   function opsQueue() { try { return JSON.parse(localStorage.getItem('vp_ops') || '[]'); } catch (e) { return []; } }
   function opsSave(q) { localStorage.setItem('vp_ops', JSON.stringify(q)); }
   function opPush(op) {
@@ -174,33 +204,47 @@
         if (p.status !== 200) throw new Error('patch ' + p.status);
         opsSave([]);
       });
-    }).catch(function () { toast('⚠ Не отправилось — попробую при следующем обновлении'); });
+    }).catch(function () { toast('⚠ Не отправилось — дошлю при следующем обновлении'); });
   }
 
-  // ── rendering ──
   function setTab(t) {
     tab = t;
-    ['tasks', 'stock', 'orders'].forEach(function (x) { document.getElementById('tb-' + x).className = (x === t) ? 'on' : ''; });
+    ['tasks', 'stock', 'orders', 'weights', 'fan', 'check'].forEach(function (x) { document.getElementById('tb-' + x).className = (x === t) ? 'on' : ''; });
     document.getElementById('fab').style.display = (t === 'tasks') ? '' : 'none';
     render();
   }
   window.setTab = setTab;
-
   function isActive(t) { return t && t.status !== 'done' && t.status !== 'failed'; }
   function pendingIds() { var p = {}; opsQueue().forEach(function (o) { if (o.op === 'status' && o.id) p[o.id] = o.status; }); return p; }
-  function pendingAdds() { return opsQueue().filter(function (o) { return o.op === 'add'; }).map(function (o) { return o.task; }); }
+  function taskById(id) {
+    var q = opsQueue();
+    for (var i = q.length - 1; i >= 0; i--) { var o = q[i]; if ((o.op === 'add' || o.op === 'update') && o.task && o.task.id === id) return o.task; }
+    return ((state && state.tasks) || []).find(function (t) { return t && t.id === id; }) || null;
+  }
+  function allTasks() {
+    var pendAdds = opsQueue().filter(function (o) { return o.op === 'add'; }).map(function (o) { var t = JSON.parse(JSON.stringify(o.task)); t._pending = true; return t; });
+    var pendUpd = {}; opsQueue().forEach(function (o) { if (o.op === 'update' && o.task) pendUpd[o.task.id] = o.task; });
+    var pendDel = {}; opsQueue().forEach(function (o) { if (o.op === 'delete' && o.id) pendDel[o.id] = 1; });
+    var base = ((state && state.tasks) || []).filter(function (t) { return t && t.id && !pendDel[t.id]; })
+      .map(function (t) { if (pendUpd[t.id]) { var x = JSON.parse(JSON.stringify(pendUpd[t.id])); x._pending = true; return x; } return t; });
+    return pendAdds.concat(base);
+  }
 
   function render() {
     var box = document.getElementById('main');
     document.getElementById('age').textContent = state && state.updatedAt
-      ? ('данные с компьютера · ' + agoText(state.updatedAt)) : 'нет данных — нажми Обновить';
+      ? ('данные с компьютера · ' + agoText(state.updatedAt)) : 'нет данных — нажми 🔄';
     if (!cfg) { box.innerHTML = '<div class="empty">Не настроено.<br>Открой секретную ссылку из расширения<br>или введи данные через ⚙️.</div>'; return; }
     if (!state) { box.innerHTML = '<div class="empty">Загружаю…</div>'; return; }
     if (tab === 'tasks') renderTasks(box);
     else if (tab === 'stock') renderStock(box);
-    else renderOrders(box);
+    else if (tab === 'orders') renderOrders(box);
+    else if (tab === 'weights') renderWeights(box);
+    else if (tab === 'fan') renderFan(box);
+    else renderCheck(box);
   }
 
+  /* ── TASKS ── */
   function taskCard(t, pend) {
     var st = pend[t.id] || t.status;
     var closed = st === 'done' || st === 'failed';
@@ -208,41 +252,41 @@
     if (t.phone) meta.push('📞 <a href="' + telHref(t.phone) + '">' + esc(t.phone) + '</a>');
     if (t.code) meta.push('🏷 ' + esc(t.code));
     if (t.deadline) meta.push('⏰ ' + esc(String(t.deadline).replace('T', ' ')));
+    if (t.watchStock) meta.push('🔔 наличие' + (t.needQty > 0 ? (' ≥ ' + t.needQty) : ''));
     if (t.desc) meta.push(esc(t.desc));
     var badge = closed ? '<span class="badge bg-done">' + (st === 'done' ? 'Выполнено' : 'Не выполнено') + (pend[t.id] ? ' · отправляется…' : '') + '</span>' : '';
-    var btns = closed ? '' :
+    var btns = closed ? '<div class="row"><button class="b b-edit" style="flex:1;" onclick="openEdit(\'' + t.id + '\')">✏️ Открыть</button></div>' :
       '<div class="row">' +
-        '<button class="b b-done" onclick="opStatus(\'' + t.id + '\',\'done\')">✅ Выполнено</button>' +
-        '<button class="b b-fail" onclick="opStatus(\'' + t.id + '\',\'failed\')">✖ Не смог</button>' +
+        '<button class="b b-done" onclick="opStatus(\'' + t.id + '\',\'done\')">✅</button>' +
+        '<button class="b b-fail" onclick="opStatus(\'' + t.id + '\',\'failed\')">✖</button>' +
+        '<button class="b b-edit" onclick="openEdit(\'' + t.id + '\')">✏️</button>' +
       '</div>';
     return '<div class="card' + (t._pending ? ' pending' : '') + '">' + badge +
       '<div class="ttl">' + esc(t.title) + (t._pending ? ' <span style="font-weight:400;color:#aaa;font-size:11px;">· отправляется…</span>' : '') + '</div>' +
       (meta.length ? '<div class="meta">' + meta.join(' &nbsp;·&nbsp; ') + '</div>' : '') + btns + '</div>';
   }
-
   function renderTasks(box) {
     var pend = pendingIds();
-    var adds = pendingAdds().map(function (t) { t = JSON.parse(JSON.stringify(t)); t._pending = true; return t; });
-    var all = adds.concat((state.tasks || []).filter(function (t) { return t && t.id; }));
+    var all = allTasks();
     var act = all.filter(function (t) { return isActive(t) && !pend[t.id]; });
     var done = all.filter(function (t) { return !isActive(t) || pend[t.id]; }).slice(0, 10);
-    var h = '';
-    h += '<div class="sec">В работе — ' + act.length + '</div>';
+    var h = '<div class="sec">В работе — ' + act.length + '</div>';
     h += act.length ? act.map(function (t) { return taskCard(t, pend); }).join('') : '<div class="empty">Активных задач нет 🎉</div>';
-    if (done.length) { h += '<div class="sec">Закрытые (последние)</div>' + done.map(function (t) { return taskCard(t, pend); }).join(''); }
+    if (done.length) h += '<div class="sec">Закрытые (последние)</div>' + done.map(function (t) { return taskCard(t, pend); }).join('');
     box.innerHTML = h;
   }
 
+  /* ── STOCK ── */
   function renderStock(box) {
     var stock = (state && state.stock) || {};
-    var watched = (state.tasks || []).filter(function (t) { return t && t.watchStock && isActive(t) && (t.link || t.adminLink); });
-    if (!watched.length) { box.innerHTML = '<div class="empty">Нет товаров на отслеживании</div>'; return; }
+    var watched = allTasks().filter(function (t) { return t && t.watchStock && isActive(t) && (t.link || t.adminLink); });
+    if (!watched.length) { box.innerHTML = '<div class="empty">Нет товаров на отслеживании.<br>Поставь в задаче галочку «🔔 Следить за наличием».</div>'; return; }
     box.innerHTML = '<div class="sec">Отслеживание наличия — ' + watched.length + '</div>' + watched.map(function (t) {
       var s = stock[t.id] || {};
-      var need = parseFloat(t.needQty) || 0;
+      var need = num(t.needQty);
       var badge;
       if (s.status === 'in' && need > 0) {
-        if (s.qty != null && parseFloat(s.qty) >= need) badge = '<span class="badge bg-in">✓ Достаточно: ' + esc(String(s.qty)) + ' (нужно ' + need + ')</span>';
+        if (s.qty != null && num(s.qty) >= need) badge = '<span class="badge bg-in">✓ Достаточно: ' + esc(String(s.qty)) + ' (нужно ' + need + ')</span>';
         else if (s.qty != null) badge = '<span class="badge bg-unk">⏳ Мало: ' + esc(String(s.qty)) + ' из ' + need + '</span>';
         else badge = '<span class="badge bg-unk">⏳ Количество неизвестно</span>';
       } else {
@@ -255,74 +299,318 @@
       if (t.code) meta.push('🏷 ' + esc(t.code));
       if (s.lastChecked) meta.push('проверено ' + agoText(s.lastChecked));
       return '<div class="card">' + badge + '<div class="ttl">' + esc(t.title || 'товар') + '</div>' +
-        (meta.length ? '<div class="meta">' + meta.join(' &nbsp;·&nbsp; ') + '</div>' : '') + '</div>';
+        (meta.length ? '<div class="meta">' + meta.join(' &nbsp;·&nbsp; ') + '</div>' : '') +
+        '<div class="row"><button class="b b-edit" style="flex:1;" onclick="openEdit(\'' + t.id + '\')">✏️ Открыть задачу</button></div></div>';
     }).join('');
   }
 
+  /* ── ORDERS ── */
+  function ordPendStatus() { var p = {}; opsQueue().forEach(function (o) { if (o.op === 'orderStatus' && o.id) p[o.id] = o.status; }); return p; }
+  function statusText(v) { for (var i = 0; i < ORD_STATUSES.length; i++) if (ORD_STATUSES[i].v === v) return ORD_STATUSES[i].t; return v; }
   function renderOrders(box) {
     var list = (state && state.orders) || [];
-    if (!list.length) { box.innerHTML = '<div class="empty">Список заказов пуст<br><span style="font-size:11px;">(компьютер должен быть залогинен в админку)</span></div>'; return; }
-    box.innerHTML = '<div class="sec">Последние заказы — ' + list.length + '</div>' + list.map(function (o) {
+    var pend = ordPendStatus();
+    var chips = '<div>' +
+      '<button class="chip' + (ordFilter === 'all' ? ' on' : '') + '" onclick="ordFilterSet(\'all\')">Все</button>' +
+      '<button class="chip' + (ordFilter === 'new' ? ' on' : '') + '" onclick="ordFilterSet(\'new\')">Оформленные</button>' +
+      '</div>';
+    var shown = list.filter(function (o) { return ordFilter === 'all' || /оформ/i.test(o.status || ''); });
+    if (!shown.length) { box.innerHTML = chips + '<div class="empty">Заказов нет<br><span style="font-size:11px;">(компьютер должен быть залогинен в админку)</span></div>'; return; }
+    var details = (state && state.orderDetails) || {};
+    box.innerHTML = chips + shown.map(function (o) {
       var meta = [];
       if (o.phone) meta.push('📞 <a href="' + telHref(o.phone) + '">' + esc(o.phone) + '</a>');
       if (o.price) meta.push('💰 ' + esc(o.price) + ' лей');
-      if (o.status) meta.push(esc(o.status));
-      return '<div class="card"><div class="ttl">#' + esc(String(o.id)) + ' · ' + esc(o.name || o.type || '') + '</div>' +
-        (meta.length ? '<div class="meta">' + meta.join(' &nbsp;·&nbsp; ') + '</div>' : '') + '</div>';
+      if (o.date) meta.push(esc(o.date));
+      var stTxt = pend[o.id] ? (statusText(pend[o.id]) + ' · отправляется…') : (o.status || '');
+      var stBadge = '<span class="badge ' + (/отмен/i.test(stTxt) ? 'bg-out' : (/оформ/i.test(stTxt) ? 'bg-new' : 'bg-done')) + '">' + esc(stTxt) + '</span>';
+      var open = !!ordOpen[o.id];
+      var detHtml = '';
+      if (open) {
+        var d = details[o.id];
+        if (d && d.items && d.items.length) {
+          var total = 0;
+          detHtml += (d.user && d.user.address ? '<div class="meta">📍 ' + esc(d.user.address) + '</div>' : '');
+          detHtml += d.items.map(function (it) {
+            var sum = num(it.price) * num(it.qty); total += sum;
+            return '<div class="oit"><span class="n">' + esc(it.name) + '<br><span style="color:#999;font-size:11px;">' + esc(it.code) + '</span></span><span class="q">' + esc(it.qty) + ' × ' + esc(it.price) + '<br><b>' + (sum ? sum.toFixed(2) : '—') + '</b></span></div>';
+          }).join('');
+          if (total) detHtml += '<div style="text-align:right;font-weight:800;font-size:14px;padding:8px 0 2px;">Итого: ' + total.toFixed(2) + ' лей</div>';
+        } else {
+          detHtml += '<div class="meta" style="padding:8px 0;">Состав ещё не загружен с компьютера — появится после ближайшей синхронизации.</div>';
+        }
+        detHtml += '<label style="display:block;font-size:11px;font-weight:800;color:#777;margin:10px 0 4px;">Статус заказа</label>' +
+          '<select id="ost-' + o.id + '" style="width:100%;font-family:inherit;font-size:14px;padding:10px;border:1px solid #ddd;border-radius:10px;background:#fafaf8;">' +
+          ORD_STATUSES.map(function (s) { return '<option value="' + s.v + '"' + ((o.status || '').toLowerCase().indexOf(s.t.toLowerCase()) === 0 ? ' selected' : '') + '>' + s.t + '</option>'; }).join('') +
+          '</select>' +
+          '<button class="ghost" onclick="ordApplyStatus(' + o.id + ')" style="margin-top:8px;">Сменить статус</button>';
+      }
+      return '<div class="card' + (pend[o.id] ? ' pending' : '') + '" >' + stBadge +
+        '<div class="ttl" onclick="ordToggle(' + o.id + ')">#' + esc(String(o.id)) + ' · ' + esc(o.name || o.type || '') + ' <span style="color:#bbb;font-weight:400;">' + (open ? '▲' : '▼') + '</span></div>' +
+        (meta.length ? '<div class="meta">' + meta.join(' &nbsp;·&nbsp; ') + '</div>' : '') + detHtml + '</div>';
     }).join('');
   }
-
-  // ── actions ──
-  window.opStatus = function (id, st) {
-    opPush({ op: 'status', id: id, status: st });
+  window.ordFilterSet = function (f) { ordFilter = f; render(); };
+  window.ordToggle = function (id) { ordOpen[id] = !ordOpen[id]; render(); };
+  window.ordApplyStatus = function (id) {
+    var sel = document.getElementById('ost-' + id);
+    if (!sel || !sel.value) return;
+    if (!confirm('Сменить статус заказа #' + id + ' на «' + statusText(sel.value) + '»?')) return;
+    opPush({ op: 'orderStatus', id: id, status: sel.value });
     render();
-    toast(st === 'done' ? '✅ Отмечено — уйдёт на компьютер' : '✖ Отмечено — уйдёт на компьютер');
+    toast('🛒 Смена статуса уйдёт на компьютер (до 5 мин)');
   };
-  window.addTask = function () {
+
+  /* ── WEIGHTS ── */
+  var wtsQuery = '';
+  function renderWeights(box) {
+    var db = (state && state.weights) || [];
+    var q = wtsQuery.toLowerCase().trim();
+    var list = !q ? db.slice() : db.filter(function (w) {
+      return String(w.code || '').toLowerCase().indexOf(q) >= 0 || String(w.name || '').toLowerCase().indexOf(q) >= 0;
+    });
+    list.sort(function (a, b) { return String(a.code).localeCompare(String(b.code), undefined, { numeric: true }); });
+    box.innerHTML = '<input class="search" id="wq" placeholder="🔍 Код или название…" value="' + esc(wtsQuery) + '" oninput="wtsSearch(this.value)">' +
+      '<div class="sec">База весов — ' + db.length + (q ? (' · найдено ' + list.length) : '') + '</div>' +
+      (list.length ? list.slice(0, 100).map(function (w) {
+        var dims = (w.length || w.width || w.height) ? ('<br><span style="font-size:10.5px;color:#aaa;">📐 ' + esc(String(w.length || '—')) + '×' + esc(String(w.width || '—')) + '×' + esc(String(w.height || '—')) + ' см</span>') : '';
+        return '<div class="wrow"><span class="wc">' + esc(w.code) + '</span><span class="wn">' + esc(w.name || '') + dims + '</span><span class="ww">' + esc(String(w.weight)) + ' кг</span></div>';
+      }).join('') : '<div class="empty">Ничего не найдено</div>');
+    var el = document.getElementById('wq');
+    if (el && q) { el.focus(); try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {} }
+  }
+  window.wtsSearch = function (v) { wtsQuery = v; render(); };
+
+  /* ── FAN ── */
+  var fanCodeQ = '';
+  function fanTariff() {
+    var t = (state && state.fanTariff) || {};
+    var r = {};
+    Object.keys(FAN_DEF).forEach(function (k) { r[k] = (t[k] !== undefined && t[k] !== null) ? t[k] : FAN_DEF[k]; });
+    return r;
+  }
+  function fanCompute(weight) {
+    var t = fanTariff();
+    var rounded;
+    if (t.rounding === 'up') rounded = Math.ceil(weight);
+    else if (t.rounding === 'down') rounded = Math.floor(weight);
+    else rounded = Math.round(weight);
+    if (rounded < 1 && weight > 0) rounded = 1;
+    if (rounded < 0) rounded = 0;
+    var extraKg = Math.max(0, rounded - (num(t.baseWeight) || 0));
+    var extraCost = extraKg * num(t.extraRate);
+    var surchargeBase = num(t.ramburs) + num(t.zone) + (t.surchargeOnExtra ? extraCost : 0);
+    var surcharge = num(t.surchargeFixed) + (surchargeBase * num(t.surchargePercent) / 100);
+    var subtotal = num(t.ramburs) + num(t.zone) + extraCost;
+    return { rounded: rounded, extraKg: extraKg, extraCost: extraCost, ramburs: num(t.ramburs), zone: num(t.zone), surcharge: surcharge, total: subtotal + surcharge, t: t };
+  }
+  function fmt(n) { return (Math.round(n * 100) / 100).toFixed(2).replace(/\.00$/, ''); }
+  function renderFan(box) {
+    var totalKg = fanWeights.reduce(function (s, r) { return s + r.kg; }, 0);
+    var db = (state && state.weights) || [];
+    var q = fanCodeQ.trim().toLowerCase();
+    var found = q ? db.filter(function (w) { return String(w.code || '').toLowerCase().indexOf(q) >= 0; }).slice(0, 5) : [];
+    var h = '<div class="sec">Груз</div>';
+    h += fanWeights.map(function (r, i) {
+      return '<div class="wrow"><span class="wn">' + esc(r.label) + '</span><span class="ww">' + fmt(r.kg) + ' кг</span><button class="chip" onclick="fanDel(' + i + ')">✕</button></div>';
+    }).join('');
+    h += '<div class="row" style="margin-top:6px;">' +
+      '<input class="search" style="margin:0;flex:1;" id="fanKg" inputmode="decimal" placeholder="Вес, кг (напр. 3.5)">' +
+      '<button class="chip on" style="margin:0;" onclick="fanAddKg()">+ кг</button></div>';
+    h += '<div class="row"><input class="search" style="margin:0;flex:1;" id="fanCode" placeholder="…или код из базы весов" value="' + esc(fanCodeQ) + '" oninput="fanCodeSearch(this.value)"></div>';
+    if (found.length) h += found.map(function (w) {
+      return '<div class="wrow" onclick="fanAddCode(\'' + esc(w.code) + '\')"><span class="wc">' + esc(w.code) + '</span><span class="wn">' + esc(w.name || '') + '</span><span class="ww">+' + esc(String(w.weight)) + ' кг</span></div>';
+    }).join('');
+    var c = fanCompute(totalKg);
+    h += '<div class="sec">Расчёт (вес ' + fmt(totalKg) + ' кг → к оплате ' + c.rounded + ' кг)</div>';
+    h += '<div class="card">' +
+      '<div class="frow"><span>Ramburs (CoD)</span><b>' + fmt(c.ramburs) + ' MDL</b></div>' +
+      '<div class="frow"><span>Зона (до ' + fmt(num(c.t.baseWeight)) + ' кг)</span><b>' + fmt(c.zone) + ' MDL</b></div>' +
+      (c.extraKg > 0 ? '<div class="frow"><span>Сверхвес ' + c.extraKg + ' кг × ' + fmt(num(c.t.extraRate)) + '</span><b>' + fmt(c.extraCost) + ' MDL</b></div>' : '') +
+      '<div class="frow"><span>Надбавка ' + fmt(num(c.t.surchargePercent)) + '%</span><b>' + fmt(c.surcharge) + ' MDL</b></div>' +
+      '<div class="ftotal"><span>ИТОГО</span><span>' + fmt(c.total) + ' MDL</span></div>' +
+      '</div>' +
+      '<div class="note">Тариф — тот же, что настроен в расширении на компьютере' + ((state && state.fanTariff) ? '' : ' (пока стандартный)') + '. Объёмный вес считается только на компьютере.</div>';
+    box.innerHTML = h;
+  }
+  window.fanDel = function (i) { fanWeights.splice(i, 1); render(); };
+  window.fanAddKg = function () {
+    var v = num((document.getElementById('fanKg') || {}).value);
+    if (v <= 0) { toast('⚠ Введи вес в кг'); return; }
+    fanWeights.push({ label: 'Вес вручную', kg: v }); render();
+  };
+  window.fanCodeSearch = function (v) { fanCodeQ = v; render(); var el = document.getElementById('fanCode'); if (el) { el.focus(); try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {} } };
+  window.fanAddCode = function (code) {
+    var db = (state && state.weights) || [];
+    var w = db.find(function (x) { return String(x.code) === code; });
+    if (!w) return;
+    fanWeights.push({ label: code + (w.name ? ' · ' + w.name : ''), kg: num(w.weight) });
+    fanCodeQ = ''; render();
+  };
+
+  /* ── CHECK (runs on the computer; phone sends the request) ── */
+  var checkInput = localStorage.getItem('vp_check_input') || '';
+  var checkLang = localStorage.getItem('vp_check_lang') || 'ru';
+  function parseCodes(raw) {
+    var codes = [], suppliers = {}, seen = {}, cur = '';
+    raw.split('\n').forEach(function (line) {
+      line = line.replace(/\r$/, '').trim();
+      if (!line || /^https?:\/\//i.test(line)) return;
+      if (/^\d{1,4}[.\/]\d{1,2}[.\/]\d{1,4}([\s,]+\d{1,2}:\d{2}(:\d{2})?)?$/.test(line)) return;
+      var m = line.match(/^(\S+)([\t]|\s{2,})(.+)$/);
+      if (m && /^\d/.test(m[1])) { if (!seen[m[1]]) { seen[m[1]] = 1; codes.push(m[1]); suppliers[m[1]] = cur; } return; }
+      var toks = line.split(/[,;\s]+/).filter(Boolean);
+      var ct = toks.filter(function (t) { return /^\d/.test(t); });
+      if (!ct.length) { cur = line; return; }
+      ct.forEach(function (c) { if (!seen[c]) { seen[c] = 1; codes.push(c); suppliers[c] = cur; } });
+    });
+    return { codes: codes, suppliers: suppliers };
+  }
+  function renderCheck(box) {
+    var parsed = parseCodes(checkInput);
+    var c = (state && state.check) || null;
+    var pendingReq = opsQueue().some(function (o) { return o.op === 'check'; });
+    var h = '<div class="sec">Проверка наличия кодов на сайте</div>';
+    h += '<textarea class="codes" id="ckIn" placeholder="Вставь коды (можно списком из 1С — как на компьютере)" oninput="ckInput(this.value)">' + esc(checkInput) + '</textarea>';
+    h += '<div style="margin-top:8px;">' +
+      '<button class="chip' + (checkLang === 'ru' ? ' on' : '') + '" onclick="ckLang(\'ru\')">RU</button>' +
+      '<button class="chip' + (checkLang === 'ro' ? ' on' : '') + '" onclick="ckLang(\'ro\')">RO</button>' +
+      '<span style="font-size:12px;color:#999;">кодов: ' + parsed.codes.length + '</span></div>';
+    h += '<button class="save" style="margin-top:8px;' + (parsed.codes.length ? '' : 'opacity:.5;') + '" onclick="ckSend()"' + (parsed.codes.length ? '' : ' disabled') + '>Проверить через компьютер</button>';
+    h += '<div class="note">Проверку выполняет компьютер (нужно, чтобы он был включён). Запрос уйдёт при ближайшей синхронизации (до 5 мин), по завершении придёт пуш в ntfy.</div>';
+    if (pendingReq) h += '<div class="card" style="margin-top:10px;"><b>⏳ Запрос отправляется…</b></div>';
+    if (c && c.codes && c.codes.length) {
+      var f = 0, m = 0, u = 0, done = 0;
+      c.codes.forEach(function (cd) { var r = (c.results || {})[cd]; if (r === 'found') { f++; done++; } else if (r === 'missing') { m++; done++; } else if (r === 'uncertain') { u++; done++; } });
+      h += '<div class="sec">' + (c.running ? ('⏳ Проверяется на компьютере: ' + done + ' из ' + c.codes.length) : ('Результат (' + (c.finishedAt ? agoText(c.finishedAt) : '') + ')')) + '</div>';
+      h += '<div style="margin-bottom:8px;">' +
+        '<button class="chip' + (checkFilter === 'all' ? ' on' : '') + '" onclick="ckFilter(\'all\')">Все ' + c.codes.length + '</button>' +
+        '<button class="chip' + (checkFilter === 'missing' ? ' on' : '') + '" onclick="ckFilter(\'missing\')">✗ Нет ' + m + '</button>' +
+        '<button class="chip' + (checkFilter === 'found' ? ' on' : '') + '" onclick="ckFilter(\'found\')">✓ Есть ' + f + '</button>' +
+        '<button class="chip' + (checkFilter === 'uncertain' ? ' on' : '') + '" onclick="ckFilter(\'uncertain\')">? ' + u + '</button></div>';
+      if (m > 0) h += '<button class="ghost" onclick="ckCopyMissing()" style="margin:0 0 8px;">📋 Скопировать отсутствующие (' + m + ')</button>';
+      var shown = c.codes.filter(function (cd) {
+        var r = (c.results || {})[cd] || 'pending';
+        return checkFilter === 'all' || r === checkFilter;
+      }).slice(0, 300);
+      h += shown.map(function (cd) {
+        var r = (c.results || {})[cd] || 'pending';
+        var n = (c.foundCounts || {})[cd];
+        var ic = r === 'found' ? '<b style="color:#1a8a55;">✓</b>' : r === 'missing' ? '<b style="color:#c62828;">✗</b>' : r === 'uncertain' ? '<b style="color:#b46b00;">?' + (n != null && n > 1 ? n : '') + '</b>' : '…';
+        var sup = (c.suppliers || {})[cd];
+        return '<div class="res"><span>' + esc(cd) + (sup ? ' <span style="color:#bbb;font-size:11px;">' + esc(sup) + '</span>' : '') + '</span>' + ic + '</div>';
+      }).join('');
+    }
+    box.innerHTML = h;
+  }
+  window.ckInput = function (v) { checkInput = v; localStorage.setItem('vp_check_input', v); };
+  window.ckLang = function (l) { checkLang = l; localStorage.setItem('vp_check_lang', l); render(); };
+  window.ckFilter = function (f) { checkFilter = f; render(); };
+  window.ckSend = function () {
+    var p = parseCodes(checkInput);
+    if (!p.codes.length) { toast('⚠ Вставь коды'); return; }
+    opPush({ op: 'check', codes: p.codes, suppliers: p.suppliers, lang: checkLang });
+    render();
+    toast('✓ Запрос отправлен — компьютер проверит и пришлёт пуш');
+  };
+  window.ckCopyMissing = function () {
+    var c = (state && state.check) || null;
+    if (!c) return;
+    var missing = (c.codes || []).filter(function (cd) { return (c.results || {})[cd] === 'missing'; });
+    var text = missing.join('\n');
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { toast('📋 Скопировано: ' + missing.length); }, function () { toast('⚠ Не удалось скопировать'); });
+  };
+
+  /* ── task edit sheet ── */
+  window.opStatus = function (id, st) { opPush({ op: 'status', id: id, status: st }); render(); toast(st === 'done' ? '✅ Отмечено' : '✖ Отмечено'); };
+  window.openEdit = function (id) {
+    editId = id;
+    var t = id ? taskById(id) : null;
+    document.getElementById('esTitle').textContent = t ? 'Задача' : 'Новая задача';
+    document.getElementById('fTitle').value = t ? (t.title || '') : '';
+    document.getElementById('fPhone').value = t ? (t.phone || '') : '';
+    document.getElementById('fCode').value = t ? (t.code || '') : '';
+    document.getElementById('fLink').value = t ? (t.link || '') : '';
+    document.getElementById('fAdmin').value = t ? (t.adminLink || '') : '';
+    document.getElementById('fNeed').value = (t && t.needQty > 0) ? t.needQty : '';
+    document.getElementById('fWatch').checked = !!(t && t.watchStock);
+    document.getElementById('fDeadline').value = t ? (t.deadline || '') : '';
+    document.getElementById('fPriority').value = (t && t.priority) || 'normal';
+    document.getElementById('fRemind').value = String(t ? (t.remind != null ? t.remind : 1440) : 1440);
+    document.getElementById('fDesc').value = t ? (t.desc || '') : '';
+    document.getElementById('esDelete').style.display = t ? '' : 'none';
+    document.getElementById('esReopen').style.display = (t && (t.status === 'done' || t.status === 'failed')) ? '' : 'none';
+    document.getElementById('sheetBg').style.display = 'block';
+    document.getElementById('editSheet').style.display = 'block';
+  };
+  window.saveTask = function () {
     var title = document.getElementById('fTitle').value.trim();
     if (!title) { toast('⚠ Нужен заголовок'); return; }
+    var old = editId ? taskById(editId) : null;
     var t = {
-      id: 'p' + Date.now() + Math.floor(Math.random() * 1000),
+      id: editId || ('p' + Date.now() + Math.floor(Math.random() * 1000)),
       title: title,
       phone: document.getElementById('fPhone').value.trim(),
       code: document.getElementById('fCode').value.trim(),
-      link: '', adminLink: '', needQty: 0, watchStock: false,
+      link: document.getElementById('fLink').value.trim(),
+      adminLink: document.getElementById('fAdmin').value.trim(),
+      needQty: (function () { var n = num(document.getElementById('fNeed').value); return n > 0 ? n : 0; })(),
+      watchStock: document.getElementById('fWatch').checked,
       desc: document.getElementById('fDesc').value.trim(),
-      deadline: '', priority: 'normal', remind: 1440,
-      status: 'active', note: '', snoozeUntil: 0,
-      createdAt: new Date().toISOString(), doneAt: null
+      deadline: document.getElementById('fDeadline').value || '',
+      priority: document.getElementById('fPriority').value || 'normal',
+      remind: parseInt(document.getElementById('fRemind').value, 10) || 0,
+      status: old ? old.status : 'active',
+      note: old ? (old.note || '') : '',
+      snoozeUntil: old ? (old.snoozeUntil || 0) : 0,
+      createdAt: old ? (old.createdAt || new Date().toISOString()) : new Date().toISOString(),
+      doneAt: old ? (old.doneAt || null) : null
     };
-    opPush({ op: 'add', task: t });
-    ['fTitle', 'fPhone', 'fCode', 'fDesc'].forEach(function (i) { document.getElementById(i).value = ''; });
+    opPush(editId ? { op: 'update', task: t } : { op: 'add', task: t });
     closeSheets(); render();
-    toast('📋 Задача сохранена — появится на компьютере');
+    toast('💾 Сохранено — уйдёт на компьютер');
   };
+  window.reopenTask = function () {
+    if (!editId) return;
+    opPush({ op: 'status', id: editId, status: 'active' });
+    closeSheets(); render();
+    toast('↩ Возвращено в работу');
+  };
+  window.deleteTask = function () {
+    if (!editId) return;
+    if (!confirm('Удалить задачу? Она удалится и на компьютере.')) return;
+    opPush({ op: 'delete', id: editId });
+    closeSheets(); render();
+    toast('🗑 Удалено');
+  };
+
   window.refresh = function () {
     if (!cfg) { openCfg(); return; }
-    var b = document.getElementById('refBtn'); b.disabled = true; b.textContent = '⏳…';
+    var b = document.getElementById('refBtn'); b.disabled = true; b.textContent = '⏳';
     sendOps().then(function () { return fetchState(); }).then(function (s) {
       state = s || {};
-      // drop pending ops already reflected in the snapshot
       var q = opsQueue().filter(function (o) {
-        if (o.op === 'add') return !(state.tasks || []).some(function (t) { return t && t.id === o.task.id; });
+        if (o.op === 'add' || o.op === 'update') return !(state.tasks || []).some(function (t) { return t && t.id === o.task.id && (o.op === 'add' || JSON.stringify(t) === JSON.stringify(o.task)); });
         if (o.op === 'status') { var t = (state.tasks || []).find(function (x) { return x && x.id === o.id; }); return !(t && t.status === o.status); }
+        if (o.op === 'delete') return (state.tasks || []).some(function (t) { return t && t.id === o.id; });
+        if (o.op === 'orderStatus') { var oo = (state.orders || []).find(function (x) { return x && x.id === o.id; }); return !(oo && statusText(o.status).toLowerCase() === String(oo.status || '').toLowerCase()); }
+        if (o.op === 'check') return !(state.check && state.check.reqId === o.oid);
         return false;
       });
       opsSave(q);
       render();
     }).catch(function (e) {
       toast('⚠ Не удалось загрузить: ' + (e && e.message ? e.message : 'ошибка'));
-    }).then(function () { b.disabled = false; b.textContent = '🔄 Обновить'; });
+    }).then(function () { b.disabled = false; b.textContent = '🔄'; });
   };
 
-  // ── sheets ──
-  window.openAdd = function () { document.getElementById('sheetBg').style.display = 'block'; document.getElementById('addSheet').style.display = 'block'; };
   window.openCfg = function () {
     document.getElementById('cT').value = cfg ? cfg.t : '';
     document.getElementById('cG').value = cfg ? cfg.g : '';
-    document.getElementById('sheetBg').style.display = 'block'; document.getElementById('cfgSheet').style.display = 'block';
+    document.getElementById('sheetBg').style.display = 'block';
+    document.getElementById('cfgSheet').style.display = 'block';
   };
-  window.closeSheets = function () { ['sheetBg', 'addSheet', 'cfgSheet'].forEach(function (i) { document.getElementById(i).style.display = 'none'; }); };
+  window.closeSheets = function () { ['sheetBg', 'editSheet', 'cfgSheet'].forEach(function (i) { document.getElementById(i).style.display = 'none'; }); };
   window.saveCfg = function () {
     var t = document.getElementById('cT').value.trim(), g = document.getElementById('cG').value.trim();
     if (!t || !g) { toast('⚠ Заполни оба поля'); return; }
@@ -331,7 +619,6 @@
     closeSheets(); refresh();
   };
 
-  // ── boot ──
   loadCfg();
   render();
   if (cfg) window.refresh();
