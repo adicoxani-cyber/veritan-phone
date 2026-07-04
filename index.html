@@ -94,6 +94,8 @@
   <button id="tb-check" onclick="setTab('check')">✓ Проверка</button>
 </div>
 
+<div id="verBan" style="display:none;background:#1a1a1a;color:#FEDC39;text-align:center;font-size:13px;font-weight:800;padding:11px 14px;" onclick="verReload()">⬆ Есть новая версия странички — нажми, чтобы обновить</div>
+
 <div class="wrap" id="main"><div class="empty">Загружаю…</div></div>
 
 <button class="fab" id="fab" onclick="openEdit(null)">+</button>
@@ -117,7 +119,7 @@
   <button class="save" onclick="saveTask()">Сохранить</button>
   <button class="ghost" id="esReopen" style="display:none;" onclick="reopenTask()">↩ Вернуть в работу</button>
   <button class="danger" id="esDelete" style="display:none;" onclick="deleteTask()">🗑 Удалить задачу</button>
-  <div class="note">Изменения попадут на компьютер при ближайшей синхронизации (до 5 минут).</div>
+  <div class="note">Изменения попадут на компьютер обычно в течение минуты (компьютер должен быть включён).</div>
 </div>
 
 <!-- Settings -->
@@ -134,6 +136,7 @@
 <script>
 (function () {
   'use strict';
+  var PAGE_VER = '1.0.92';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
   var API = 'https://api.github.com';
   var state = null, tab = 'tasks', cfg = null, editId = null;
   var ordFilter = 'all', ordOpen = {}, checkFilter = 'all';
@@ -207,7 +210,8 @@
       q.forEach(function (o) { if (!have[o.oid]) cur.push(o); });
       return gh('PATCH', '/gists/' + cfg.g, { files: { 'ops.json': { content: JSON.stringify({ ops: cur }) } } }).then(function (p) {
         if (p.status !== 200) throw new Error('patch ' + p.status);
-        opsSave([]);
+        // NB: the queue is NOT cleared here — ops stay until the computer confirms
+        // them (state.consumedOps), so a racing sync can never lose a command.
       });
     }).catch(function () { toast('⚠ Не отправилось — дошлю при следующем обновлении'); });
   }
@@ -370,7 +374,7 @@
     if (!confirm('Сменить статус заказа #' + id + ' на «' + statusText(sel.value) + '»?')) return;
     opPush({ op: 'orderStatus', id: id, status: sel.value });
     render();
-    toast('🛒 Смена статуса уйдёт на компьютер (до 5 мин)');
+    toast('🛒 Отправлено — компьютер применит в течение минуты');
   };
 
   /* ── WEIGHTS ── */
@@ -487,9 +491,9 @@
     h += '<div style="margin-top:8px;">' +
       '<button class="chip' + (checkLang === 'ru' ? ' on' : '') + '" onclick="ckLang(\'ru\')">RU</button>' +
       '<button class="chip' + (checkLang === 'ro' ? ' on' : '') + '" onclick="ckLang(\'ro\')">RO</button>' +
-      '<span style="font-size:12px;color:#999;">кодов: ' + parsed.codes.length + '</span></div>';
-    h += '<button class="save" style="margin-top:8px;' + (parsed.codes.length ? '' : 'opacity:.5;') + '" onclick="ckSend()"' + (parsed.codes.length ? '' : ' disabled') + '>Проверить через компьютер</button>';
-    h += '<div class="note">Проверку выполняет компьютер (нужно, чтобы он был включён). Запрос уйдёт при ближайшей синхронизации (до 5 мин), по завершении придёт пуш в ntfy.</div>';
+      '<span id="ckCount" style="font-size:12px;color:#999;">кодов: ' + parsed.codes.length + '</span></div>';
+    h += '<button class="save" id="ckBtn" style="margin-top:8px;opacity:' + (parsed.codes.length ? '1' : '.5') + ';" onclick="ckSend()"' + (parsed.codes.length ? '' : ' disabled') + '>Проверить через компьютер</button>';
+    h += '<div class="note">Проверку выполняет компьютер (нужно, чтобы он был включён). Запрос уйдёт обычно в течение минуты, по завершении придёт пуш в ntfy.</div>';
     if (pendingReq) h += '<div class="card" style="margin-top:10px;"><b>⏳ Запрос отправляется…</b></div>';
     if (c && c.codes && c.codes.length) {
       var f = 0, m = 0, u = 0, done = 0;
@@ -515,7 +519,13 @@
     }
     box.innerHTML = h;
   }
-  window.ckInput = function (v) { checkInput = v; localStorage.setItem('vp_check_input', v); };
+  window.ckInput = function (v) {
+    checkInput = v; localStorage.setItem('vp_check_input', v);
+    // live-enable the button — a full re-render here would steal the textarea focus
+    var p = parseCodes(v);
+    var cnt = document.getElementById('ckCount'); if (cnt) cnt.textContent = 'кодов: ' + p.codes.length;
+    var b = document.getElementById('ckBtn'); if (b) { b.disabled = !p.codes.length; b.style.opacity = p.codes.length ? '1' : '.5'; }
+  };
   window.ckLang = function (l) { checkLang = l; localStorage.setItem('vp_check_lang', l); render(); };
   window.ckFilter = function (f) { checkFilter = f; render(); };
   window.ckSend = function () {
@@ -601,7 +611,11 @@
     var b = document.getElementById('refBtn'); b.disabled = true; b.textContent = '⏳';
     sendOps().then(function () { return fetchState(); }).then(function (s) {
       state = s || {};
+      var confirmed = {};
+      (state.consumedOps || []).forEach(function (id) { confirmed[id] = 1; });
       var q = opsQueue().filter(function (o) {
+        if (confirmed[o.oid]) return false;   // computer confirmed this op — done
+        // fallback checks (older extension without consumedOps): drop when reflected
         if (o.op === 'add' || o.op === 'update') return !(state.tasks || []).some(function (t) { return t && t.id === o.task.id && (o.op === 'add' || JSON.stringify(t) === JSON.stringify(o.task)); });
         if (o.op === 'status') { var t = (state.tasks || []).find(function (x) { return x && x.id === o.id; }); return !(t && t.status === o.status); }
         if (o.op === 'delete') return (state.tasks || []).some(function (t) { return t && t.id === o.id; });
@@ -610,12 +624,18 @@
         return false;
       });
       opsSave(q);
+      var ban = document.getElementById('verBan');
+      if (ban) ban.style.display = (state.appVer && state.appVer !== PAGE_VER) ? 'block' : 'none';
       render();
     }).catch(function (e) {
       toast('⚠ Не удалось загрузить: ' + (e && e.message ? e.message : 'ошибка'));
     }).then(function () { b.disabled = false; b.textContent = '🔄'; });
   };
 
+  window.verReload = function () {
+    // bypass the 10-min github.io HTTP cache: re-fetch the page, then reload from the refreshed cache
+    fetch(location.pathname, { cache: 'reload' }).then(function () { location.reload(); }, function () { location.reload(); });
+  };
   window.openCfg = function () {
     document.getElementById('cT').value = cfg ? cfg.t : '';
     document.getElementById('cG').value = cfg ? cfg.g : '';
