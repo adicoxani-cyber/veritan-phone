@@ -169,8 +169,11 @@
     return Math.floor(s / 86400) + ' дн назад';
   }
   function gh(method, path, body) {
+    // cache:'no-store' — GitHub API responses are cacheable for 60s; a stale GET
+    // would show old data and could re-send already-consumed ops.
     return fetch(API + path, {
       method: method,
+      cache: 'no-store',
       headers: { 'Authorization': 'Bearer ' + cfg.t, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
       body: body ? JSON.stringify(body) : undefined
     }).then(function (r) { return r.text().then(function (t) { var j = null; try { j = JSON.parse(t); } catch (e) {} return { status: r.status, json: j }; }); });
@@ -180,7 +183,7 @@
       if (r.status !== 200 || !r.json || !r.json.files) throw new Error('облако ' + r.status);
       var f = r.json.files['state.json'];
       if (!f) throw new Error('нет данных');
-      if (f.truncated && f.raw_url) return fetch(f.raw_url).then(function (rr) { return rr.json(); });
+      if (f.truncated && f.raw_url) return fetch(f.raw_url, { cache: 'no-store' }).then(function (rr) { return rr.json(); });
       try { return JSON.parse(f.content || '{}'); } catch (e) { return {}; }
     });
   }
