@@ -86,6 +86,7 @@
 </div>
 
 <div class="tabs">
+  <button id="tb-find" onclick="setTab('find')">🔎 Поиск</button>
   <button id="tb-tasks" class="on" onclick="setTab('tasks')">📋 Задачи</button>
   <button id="tb-stock" onclick="setTab('stock')">🔔 Наличие</button>
   <button id="tb-orders" onclick="setTab('orders')">🛒 Заказы</button>
@@ -137,7 +138,7 @@
 <script>
 (function () {
   'use strict';
-  var PAGE_VER = '1.0.95';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
+  var PAGE_VER = '1.0.98';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
   var API = 'https://api.github.com';
   var state = null, tab = 'tasks', cfg = null, editId = null;
   var ordFilter = 'all', ordOpen = {}, checkFilter = 'all';
@@ -219,7 +220,7 @@
 
   function setTab(t) {
     tab = t;
-    ['tasks', 'stock', 'orders', 'weights', 'fan', 'check'].forEach(function (x) { document.getElementById('tb-' + x).className = (x === t) ? 'on' : ''; });
+    ['find', 'tasks', 'stock', 'orders', 'weights', 'fan', 'check'].forEach(function (x) { document.getElementById('tb-' + x).className = (x === t) ? 'on' : ''; });
     document.getElementById('fab').style.display = (t === 'tasks') ? '' : 'none';
     render();
   }
@@ -246,13 +247,86 @@
       ? ('данные с компьютера · ' + agoText(state.updatedAt)) : 'нет данных — нажми 🔄';
     if (!cfg) { box.innerHTML = '<div class="empty">Не настроено.<br>Открой секретную ссылку из расширения<br>или введи данные через ⚙️.</div>'; return; }
     if (!state) { box.innerHTML = '<div class="empty">Загружаю…</div>'; return; }
-    if (tab === 'tasks') renderTasks(box);
+    if (tab === 'find') renderFind(box);
+    else if (tab === 'tasks') renderTasks(box);
     else if (tab === 'stock') renderStock(box);
     else if (tab === 'orders') renderOrders(box);
     else if (tab === 'weights') renderWeights(box);
     else if (tab === 'fan') renderFan(box);
     else renderCheck(box);
   }
+
+  /* ── FIND (runs on the computer; phone sends the request) ── */
+  var findQ = localStorage.getItem('vp_find_q') || '';
+  function renderFind(box) {
+    var f = (state && state.find) || null;
+    var pendingOp = opsQueue().filter(function (o) { return o.op === 'findProduct'; }).pop();
+    var h = '<div class="sec">Поиск товара по коду</div>';
+    h += '<div style="display:flex;gap:8px;"><input class="search" style="margin:0;flex:1;min-width:0;" id="vfQ" placeholder="Код, напр. 21.1907" value="' + esc(findQ) + '" onkeydown="if(event.key===\'Enter\')vfSend()"><button class="chip on" style="margin:0;" onclick="vfSend()">Найти</button></div>';
+    h += '<div class="note">Ищет компьютер (должен быть включён): результат придёт в течение минуты — обнови 🔄.</div>';
+    if (pendingOp) h += '<div class="card" style="margin-top:10px;"><b>⏳ Компьютер ищет «' + esc(pendingOp.q || '') + '»…</b><div class="meta">обнови страницу через минуту</div></div>';
+    if (f && f.at && !pendingOp) {
+      if (!f.ok) {
+        h += '<div class="card" style="margin-top:10px;"><b>✗ «' + esc(f.q || '') + '»</b><div class="meta">' + esc(f.error || 'не найдено') + ' · ' + agoText(f.at) + '</div></div>';
+      } else {
+        var badge = f.inStock === true ? '<span class="badge bg-in">✓ Есть в наличии</span>'
+          : f.inStock === false ? '<span class="badge bg-out">✗ Нет (на заказ)</span>'
+          : '<span class="badge bg-unk">⚠ наличие не распознано</span>';
+        var wRec = ((state && state.weights) || []).find(function (x) { return x && String(x.code) === String(f.code); });
+        var wPend = opsQueue().some(function (o) { return o.op === 'setWeight' && String(o.code) === String(f.code); });
+        var wHtml;
+        if (wRec) {
+          var c = fanCompute(num(wRec.weight));
+          wHtml = '⚖️ <b>' + esc(String(wRec.weight)) + ' кг</b> · 📦 FAN ≈ <b>' + fmt(c.total) + ' MDL</b>' + (wPend ? ' · отправляется…' : '') + ' <button class="chip" style="margin:0 0 0 6px;" onclick="vfWt()">✏️</button>';
+        } else {
+          wHtml = '⚖️ Веса нет в базе ' + (wPend ? '· отправляется…' : '<button class="chip on" style="margin:0 0 0 6px;" onclick="vfWt()">Задать вес</button>');
+        }
+        h += '<div class="card" style="margin-top:10px;">' + badge
+          + '<div class="ttl">' + esc(f.name || '') + '</div>'
+          + '<div class="meta">🏷 ' + esc(f.code || '') + (f.price ? ' &nbsp;·&nbsp; 💰 <b>' + esc(f.price) + '</b>' : '') + '<br>'
+          + '🏭 Склад: ' + (f.qty != null ? '<b>' + esc(String(f.qty)) + ' шт</b>' : esc(f.admNote || '—')) + (f.admChecked != null ? ' · галочка: ' + (f.admChecked ? '✓' : '✗') : '') + '<br>'
+          + wHtml + '<br>'
+          + '🔗 <a href="' + esc(f.urlRu || '') + '" target="_blank">RU ↗</a> · <a href="' + esc(f.urlRo || '') + '" target="_blank">RO ↗</a>'
+          + ' <span style="color:#bbb;">· данные ' + agoText(f.at) + '</span></div>'
+          + '<div class="row"><button class="b b-edit" style="flex:1;" onclick="vfTask(false)">➕ Задача</button><button class="b b-done" onclick="vfTask(true)">🔔 Следить</button></div>'
+          + '</div>';
+      }
+    }
+    box.innerHTML = h;
+  }
+  window.vfSend = function () {
+    var q = ((document.getElementById('vfQ') || {}).value || '').trim();
+    if (!q) { toast('⚠ Впиши код товара'); return; }
+    findQ = q; localStorage.setItem('vp_find_q', q);
+    opPush({ op: 'findProduct', q: q });
+    render();
+    toast('🔎 Запрос отправлен — компьютер найдёт и пришлёт');
+  };
+  window.vfWt = function () {
+    var f = (state && state.find) || null;
+    if (!f || !f.ok) return;
+    var cur = ((state && state.weights) || []).find(function (x) { return x && String(x.code) === String(f.code); });
+    var v = prompt('Вес «' + (f.name || f.code) + '», кг:', cur ? String(cur.weight) : '');
+    if (v == null) return;
+    var w = num(v);
+    if (!(w > 0)) { toast('⚠ Некорректный вес'); return; }
+    opPush({ op: 'setWeight', code: f.code, weight: w, name: f.name || '' });
+    state.weights = state.weights || [];
+    var i = state.weights.findIndex(function (x) { return x && String(x.code) === String(f.code); });
+    if (i >= 0) state.weights[i].weight = w; else state.weights.push({ code: f.code, name: f.name || '', weight: w });
+    render();
+    toast('⚖️ Вес отправлен — на компьютере появится в базе весов');
+  };
+  window.vfTask = function (watch) {
+    var f = (state && state.find) || null;
+    if (!f || !f.ok) return;
+    openEdit(null);
+    document.getElementById('fTitle').value = (watch ? 'De sunat când apare: ' : '') + (f.name || '');
+    document.getElementById('fCode').value = f.code || '';
+    document.getElementById('fLink').value = f.urlRu || '';
+    document.getElementById('fAdmin').value = f.adminUrl || '';
+    document.getElementById('fWatch').checked = !!watch;
+  };
 
   /* ── TASKS ── */
   function taskCard(t, pend) {
@@ -392,12 +466,24 @@
       '<div class="sec">База весов — ' + db.length + (q ? (' · найдено ' + list.length) : '') + '</div>' +
       (list.length ? list.slice(0, 100).map(function (w) {
         var dims = (w.length || w.width || w.height) ? ('<br><span style="font-size:10.5px;color:#aaa;">📐 ' + esc(String(w.length || '—')) + '×' + esc(String(w.width || '—')) + '×' + esc(String(w.height || '—')) + ' см</span>') : '';
-        return '<div class="wrow"><span class="wc">' + esc(w.code) + '</span><span class="wn">' + esc(w.name || '') + dims + '</span><span class="ww">' + esc(String(w.weight)) + ' кг</span></div>';
+        var pend = opsQueue().some(function (o) { return o.op === 'setWeight' && String(o.code) === String(w.code); });
+        return '<div class="wrow"><span class="wc">' + esc(w.code) + '</span><span class="wn">' + esc(w.name || '') + dims + '</span><span class="ww">' + esc(String(w.weight)) + ' кг' + (pend ? '…' : '') + '</span><button class="chip" style="margin:0;" onclick="wtsEditW(\'' + esc(String(w.code)) + '\')">✏️</button></div>';
       }).join('') : '<div class="empty">Ничего не найдено</div>');
     var el = document.getElementById('wq');
     if (el && q) { el.focus(); try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {} }
   }
   window.wtsSearch = function (v) { wtsQuery = v; render(); };
+  window.wtsEditW = function (code) {
+    var w = ((state && state.weights) || []).find(function (x) { return x && String(x.code) === String(code); });
+    var v = prompt('Вес для ' + code + ', кг:', w ? String(w.weight) : '');
+    if (v == null) return;
+    var n = num(v);
+    if (!(n > 0)) { toast('⚠ Некорректный вес'); return; }
+    opPush({ op: 'setWeight', code: code, weight: n, name: (w && w.name) || '' });
+    if (w) w.weight = n;
+    render();
+    toast('⚖️ Отправлено — на компьютере обновится в базе весов');
+  };
 
   /* ── FAN ── */
   var fanCodeQ = '';
@@ -625,6 +711,8 @@
         if (o.op === 'delete') return (state.tasks || []).some(function (t) { return t && t.id === o.id; });
         if (o.op === 'orderStatus') { var oo = (state.orders || []).find(function (x) { return x && x.id === o.id; }); return !(oo && statusText(o.status).toLowerCase() === String(oo.status || '').toLowerCase()); }
         if (o.op === 'check') return !(state.check && state.check.reqId === o.oid);
+        if (o.op === 'setWeight') { var wr = (state.weights || []).find(function (x) { return x && String(x.code) === String(o.code); }); return !(wr && num(wr.weight) === num(o.weight)); }
+        if (o.op === 'findProduct') return !(state.find && state.find.reqOid === o.oid);
         return false;
       });
       opsSave(q);
