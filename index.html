@@ -115,6 +115,7 @@
   <label>Срок (дедлайн)</label><input id="fDeadline" type="datetime-local">
   <label>Приоритет</label><select id="fPriority"><option value="high">Высокий</option><option value="normal" selected>Обычный</option><option value="low">Низкий</option></select>
   <label>Напоминать</label><select id="fRemind"><option value="0">Без напоминаний</option><option value="30">Каждые 30 мин</option><option value="60">Каждый час</option><option value="180">Каждые 3 ч</option><option value="1440" selected>Раз в день</option></select>
+  <label>🔁 Повторять (после «Выполнено» задача вернётся)</label><select id="fRepeat"><option value="0" selected>Не повторять</option><option value="120">Каждые 2 часа</option><option value="180">Каждые 3 часа</option><option value="360">Каждые 6 часов</option><option value="720">2 раза в день</option><option value="1440">Каждый день</option><option value="10080">Каждую неделю</option></select>
   <label>Заметка</label><textarea id="fDesc" rows="2" placeholder="Детали…"></textarea>
   <button class="save" onclick="saveTask()">Сохранить</button>
   <button class="ghost" id="esReopen" style="display:none;" onclick="reopenTask()">↩ Вернуть в работу</button>
@@ -136,7 +137,7 @@
 <script>
 (function () {
   'use strict';
-  var PAGE_VER = '1.0.92';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
+  var PAGE_VER = '1.0.95';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
   var API = 'https://api.github.com';
   var state = null, tab = 'tasks', cfg = null, editId = null;
   var ordFilter = 'all', ordOpen = {}, checkFilter = 'all';
@@ -262,6 +263,7 @@
     if (t.code) meta.push('🏷 ' + esc(t.code));
     if (t.deadline) meta.push('⏰ ' + esc(String(t.deadline).replace('T', ' ')));
     if (t.watchStock) meta.push('🔔 наличие' + (t.needQty > 0 ? (' ≥ ' + t.needQty) : ''));
+    if (t.repeat > 0) meta.push('🔁 повторяется');
     if (t.desc) meta.push(esc(t.desc));
     var badge = closed ? '<span class="badge bg-done">' + (st === 'done' ? 'Выполнено' : 'Не выполнено') + (pend[t.id] ? ' · отправляется…' : '') + '</span>' : '';
     var btns = closed ? '<div class="row"><button class="b b-edit" style="flex:1;" onclick="openEdit(\'' + t.id + '\')">✏️ Открыть</button></div>' :
@@ -559,6 +561,7 @@
     document.getElementById('fDeadline').value = t ? (t.deadline || '') : '';
     document.getElementById('fPriority').value = (t && t.priority) || 'normal';
     document.getElementById('fRemind').value = String(t ? (t.remind != null ? t.remind : 1440) : 1440);
+    document.getElementById('fRepeat').value = String((t && t.repeat) || 0);
     document.getElementById('fDesc').value = t ? (t.desc || '') : '';
     document.getElementById('esDelete').style.display = t ? '' : 'none';
     document.getElementById('esReopen').style.display = (t && (t.status === 'done' || t.status === 'failed')) ? '' : 'none';
@@ -582,6 +585,7 @@
       deadline: document.getElementById('fDeadline').value || '',
       priority: document.getElementById('fPriority').value || 'normal',
       remind: parseInt(document.getElementById('fRemind').value, 10) || 0,
+      repeat: parseInt(document.getElementById('fRepeat').value, 10) || 0,
       status: old ? old.status : 'active',
       note: old ? (old.note || '') : '',
       snoozeUntil: old ? (old.snoozeUntil || 0) : 0,
