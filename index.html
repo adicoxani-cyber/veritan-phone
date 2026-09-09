@@ -138,15 +138,21 @@
 <script>
 (function () {
   'use strict';
-  var PAGE_VER = '1.23.2';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
+  var PAGE_VER = '1.25.0';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
   var API = 'https://api.github.com';
   var state = null, tab = 'tasks', cfg = null, editId = null;
   var ordFilter = 'all', ordOpen = {}, checkFilter = 'all';
   var fanWeights = [];   // [{label, kg}] rows added on the FAN tab
   var FAN_DEF = { ramburs: 15, zone: 55, surchargeFixed: 0, surchargePercent: 7, baseWeight: 1, extraRate: 6, rounding: 'nearest', surchargeOnExtra: true };
+  // site — как статус зовётся в админке (по нему узнаём пришедшее с сайта),
+  // t — как он подписан у нас. «В процессе» и «Закончен» переиспользованы под
+  // работу с клиентами, поэтому подписи отличаются от родных.
   var ORD_STATUSES = [
-    { v: 'checkout', t: 'Оформлен' }, { v: 'cancelled', t: 'Отменен' }, { v: 'approved', t: 'Подтвержден' },
-    { v: 'finished', t: 'Закончен' }, { v: 'delivery', t: 'В доставке' }, { v: 'inproccess', t: 'В процессе' }
+    { v: 'checkout', site: 'Оформлен', t: 'Оформлен' }, { v: 'cancelled', site: 'Отменен', t: 'Отменен' },
+    { v: 'approved', site: 'Подтвержден', t: 'Подтвержден' },
+    { v: 'finished', site: 'Закончен', t: 'Позвонить позже' },
+    { v: 'delivery', site: 'В доставке', t: 'В доставке' },
+    { v: 'inproccess', site: 'В процессе', t: 'Не ответил' }
   ];
 
   function loadCfg() {
@@ -433,7 +439,13 @@
         }
         detHtml += '<label style="display:block;font-size:11px;font-weight:800;color:#777;margin:10px 0 4px;">Статус заказа</label>' +
           '<select id="ost-' + o.id + '" style="width:100%;font-family:inherit;font-size:14px;padding:10px;border:1px solid #ddd;border-radius:10px;background:#fafaf8;">' +
-          ORD_STATUSES.map(function (s) { return '<option value="' + s.v + '"' + ((o.status || '').toLowerCase().indexOf(s.t.toLowerCase()) === 0 ? ' selected' : '') + '>' + s.t + '</option>'; }).join('') +
+          ORD_STATUSES.map(function (s) {
+            // Отмечаем выбранным по РОДНОМУ имени из админки — именно оно
+            // приходит в o.status; нашу подпись тоже принимаем на всякий случай.
+            var cur = (o.status || '').toLowerCase();
+            var on = cur.indexOf(String(s.site || '').toLowerCase()) === 0 || cur.indexOf(String(s.t).toLowerCase()) === 0;
+            return '<option value="' + s.v + '"' + (on ? ' selected' : '') + '>' + s.t + '</option>';
+          }).join('') +
           '</select>' +
           '<button class="ghost" onclick="ordApplyStatus(' + o.id + ')" style="margin-top:8px;">Сменить статус</button>';
       }
