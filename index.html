@@ -35,9 +35,15 @@
   .bg-out { background: #fdecec; color: #c62828; }
   .bg-unk { background: #fff4e0; color: #b46b00; }
   .bg-done { background: #f0f0ec; color: #999; }
-  .bg-new { background: #e8f0fd; color: #2456a8; }
-  .bg-del { background: #f5e9fa; color: #8e24aa; }
-  .bg-fin { background: #e0f4f6; color: #00838f; }
+  /* Статусы заказов — те же цвета, что в редакторе (шкала «насколько требует
+     тебя сейчас»); отдельные классы, чтобы не тянуть за собой bg-in/bg-out,
+     которыми помечено наличие товара. */
+  .bg-o-new { background: #fff4e0; color: #b36a00; }
+  .bg-o-noans { background: #ffeee4; color: #c74a05; }
+  .bg-o-later { background: #f0ebff; color: #5f3dc4; }
+  .bg-o-appr { background: #e7f7ec; color: #2b8a3e; }
+  .bg-o-del { background: #e0f4f7; color: #0b7285; }
+  .bg-o-cancel { background: #f4eeee; color: #a13a3a; }
   .sec { font-size: 11.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #a5a5a0; margin: 18px 2px 8px; }
   .empty { text-align: center; color: #b5b5b0; font-size: 13px; padding: 40px 20px; line-height: 1.6; }
   .fab { position: fixed; right: 18px; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); width: 58px; height: 58px; border-radius: 50%; background: #1a1a1a; color: #FEDC39; font-size: 30px; border: none; box-shadow: 0 8px 24px rgba(0,0,0,.28); z-index: 6; }
@@ -138,7 +144,7 @@
 <script>
 (function () {
   'use strict';
-  var PAGE_VER = '1.27.0';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
+  var PAGE_VER = '1.28.0';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
   var API = 'https://api.github.com';
   var state = null, tab = 'tasks', cfg = null, editId = null;
   var ordFilter = 'all', ordOpen = {}, checkFilter = 'all';
@@ -414,12 +420,14 @@
       if (o.price) meta.push('💰 ' + esc(o.price) + ' лей');
       if (o.date) meta.push(esc(o.date));
       var stTxt = pend[o.id] ? (statusText(pend[o.id]) + ' · отправляется…') : (o.status || '');
-      var stCls = /отмен/i.test(stTxt) ? 'bg-out'
-        : /оформ/i.test(stTxt) ? 'bg-in'
-        : /процесс/i.test(stTxt) ? 'bg-unk'
-        : /подтвержд/i.test(stTxt) ? 'bg-new'
-        : /доставк/i.test(stTxt) ? 'bg-del'
-        : /законч/i.test(stTxt) ? 'bg-fin'
+      // Сначала родные имена из админки, затем наши подписи — статус может
+      // прийти и со страницы, и из кеша после смены через расширение.
+      var stCls = /отмен/i.test(stTxt) ? 'bg-o-cancel'
+        : /оформ/i.test(stTxt) ? 'bg-o-new'
+        : /процесс|не ответил/i.test(stTxt) ? 'bg-o-noans'
+        : /подтвержд/i.test(stTxt) ? 'bg-o-appr'
+        : /доставк/i.test(stTxt) ? 'bg-o-del'
+        : /законч|позвонить позже/i.test(stTxt) ? 'bg-o-later'
         : 'bg-done';
       var stBadge = '<span class="badge ' + stCls + '">' + esc(stTxt) + '</span>';
       var open = !!ordOpen[o.id];
