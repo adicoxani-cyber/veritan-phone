@@ -76,6 +76,25 @@
   .oit .q { flex-shrink: 0; color: #777; font-variant-numeric: tabular-nums; }
   textarea.codes { width: 100%; font-family: Menlo, monospace; font-size: 13px; padding: 12px; border: 1px solid #ddd; border-radius: 12px; outline: none; background: #fff; min-height: 110px; }
   .res { display: flex; justify-content: space-between; align-items: center; background: #fff; border: 1px solid #ebebe7; border-radius: 10px; padding: 8px 12px; margin-bottom: 6px; font-size: 13px; }
+  /* ── Звонки (v1.49): «Сегодня позвонить» и заявки ── */
+  a.b { display: block; text-align: center; text-decoration: none; }
+  .b-call { background: #1a8a55; color: #fff; }
+  .b-sms { background: #eef3f8; color: #0a6e8a; flex: 0 0 64px; }
+  .card.due { border-color: #f3b8b5; box-shadow: inset 4px 0 0 #e53935; }
+  .card.k-feed { border-left: 4px solid #f59f00; }
+  .card.k-order { border-left: 4px solid #7048e8; }
+  .card.k-watch { border-left: 4px solid #1a8a55; }
+  .card.k-task { border-left: 4px solid #999; }
+  .why { font-size: 13px; color: #444; margin-top: 4px; line-height: 1.45; }
+  .why b.due { color: #c62828; }
+  .ctx { display: inline-block; font-size: 11px; font-weight: 700; background: #fff8e1; color: #7a5b00; border-radius: 6px; padding: 2px 7px; margin: 5px 4px 0 0; }
+  .tcount { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 4px; border-radius: 9999px; background: #f59f00; color: #fff; font-size: 11px; line-height: 17px; }
+  .stgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .stbtn { border: 1.5px solid #e6e6e2; background: #fff; border-radius: 10px; padding: 10px 6px; font-size: 13px; font-weight: 800; font-family: inherit; color: #444; }
+  .stbtn.on { border-color: #1a1a1a; background: #1a1a1a; color: #FEDC39; }
+  .cbchips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .cbchips .chip { margin: 0; }
+  .err { background: #fff4e0; color: #b46b00; border-radius: 10px; padding: 9px 12px; font-size: 12.5px; font-weight: 700; margin-bottom: 10px; line-height: 1.45; }
 </style>
 </head>
 <body>
@@ -93,6 +112,7 @@
 
 <div class="tabs">
   <button id="tb-find" onclick="setTab('find')">🔎 Поиск</button>
+  <button id="tb-feed" onclick="setTab('feed')">📞 Звонки<span id="tbFeedN"></span></button>
   <button id="tb-tasks" class="on" onclick="setTab('tasks')">📋 Задачи</button>
   <button id="tb-stock" onclick="setTab('stock')">🔔 Наличие</button>
   <button id="tb-orders" onclick="setTab('orders')">🛒 Заказы</button>
@@ -130,6 +150,24 @@
   <div class="note">Изменения попадут на компьютер обычно в течение минуты (компьютер должен быть включён).</div>
 </div>
 
+<!-- Заявка на звонок: статус, перезвон, заметка, СМС -->
+<div class="sheet" id="feedSheet">
+  <h3 id="fdTitle">Заявка</h3>
+  <div class="meta" id="fdWho" style="font-size:13px;color:#777;margin-bottom:6px;"></div>
+  <label>Что получилось</label>
+  <div class="stgrid" id="fdSt"></div>
+  <label>⏰ Когда перезвонить (напомнит компьютер)</label>
+  <div class="cbchips" id="fdCb"></div>
+  <label>Заметка в заявке</label>
+  <textarea id="fdNote" rows="2" placeholder="Что сказал клиент…"></textarea>
+  <label>СМС клиенту</label>
+  <div class="cbchips" id="fdSmsTpl"></div>
+  <div class="row" id="fdSmsRow" style="margin-top:8px;"></div>
+  <div class="chk"><input type="checkbox" id="fdSmsMark"><span>Отметить в заявке «✉ СМС» с временем</span></div>
+  <button class="save" onclick="fdSave()">Сохранить</button>
+  <div class="note">Статус запишется в комментарий заявки в админке, когда компьютер подхватит команду (обычно в течение минуты; он должен быть включён и залогинен в админку).</div>
+</div>
+
 <!-- Settings -->
 <div class="sheet" id="cfgSheet">
   <h3>Подключение</h3>
@@ -144,9 +182,10 @@
 <script>
 (function () {
   'use strict';
-  var PAGE_VER = '1.48.0';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
+  var PAGE_VER = '1.49.0';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
   var API = 'https://api.github.com';
-  var state = null, tab = 'tasks', cfg = null, editId = null;
+  var state = null, tab = localStorage.getItem('vp_tab') || 'tasks', cfg = null, editId = null;
+  if (['find', 'feed', 'tasks', 'stock', 'orders', 'weights', 'fan', 'check'].indexOf(tab) < 0) tab = 'tasks';
   var ordFilter = 'all', ordOpen = {}, checkFilter = 'all';
   var fanWeights = [];   // [{label, kg}] rows added on the FAN tab
   var FAN_DEF = { ramburs: 15, zone: 55, surchargeFixed: 0, surchargePercent: 7, baseWeight: 1, extraRate: 6, rounding: 'nearest', surchargeOnExtra: true };
@@ -232,7 +271,8 @@
 
   function setTab(t) {
     tab = t;
-    ['find', 'tasks', 'stock', 'orders', 'weights', 'fan', 'check'].forEach(function (x) { document.getElementById('tb-' + x).className = (x === t) ? 'on' : ''; });
+    try { localStorage.setItem('vp_tab', t); } catch (e) {}   // открываться на той же вкладке
+    ['find', 'feed', 'tasks', 'stock', 'orders', 'weights', 'fan', 'check'].forEach(function (x) { document.getElementById('tb-' + x).className = (x === t) ? 'on' : ''; });
     document.getElementById('fab').style.display = (t === 'tasks') ? '' : 'none';
     render();
   }
@@ -259,7 +299,9 @@
       ? ('данные с компьютера · ' + agoText(state.updatedAt)) : 'нет данных — нажми 🔄';
     if (!cfg) { box.innerHTML = '<div class="empty">Не настроено.<br>Открой секретную ссылку из расширения<br>или введи данные через ⚙️.</div>'; return; }
     if (!state) { box.innerHTML = '<div class="empty">Загружаю…</div>'; return; }
+    fdTabCount();
     if (tab === 'find') renderFind(box);
+    else if (tab === 'feed') renderFeed(box);
     else if (tab === 'tasks') renderTasks(box);
     else if (tab === 'stock') renderStock(box);
     else if (tab === 'orders') renderOrders(box);
@@ -419,7 +461,14 @@
       if (o.phone) meta.push('📞 <a href="' + telHref(o.phone) + '">' + esc(o.phone) + '</a>');
       if (o.price) meta.push('💰 ' + esc(o.price) + ' лей');
       if (o.date) meta.push(esc(o.date));
-      var stTxt = pend[o.id] ? (statusText(pend[o.id]) + ' · отправляется…') : (o.status || '');
+      // Подпись — НАША («Не ответил», «Позвонить позже»), а не имя из админки.
+      var siteSt = ORD_STATUSES.filter(function (s) { return String(o.status || '').toLowerCase().indexOf(s.site.toLowerCase()) === 0; })[0];
+      var stTxt = pend[o.id] ? (statusText(pend[o.id]) + ' · отправляется…') : (siteSt ? siteSt.t : (o.status || ''));
+      var oc = fdOrderCb(o.id), now0 = Date.now();
+      var cbBadge = (oc.at ? '<span class="badge ' + (oc.at <= now0 ? 'bg-out' : 'bg-o-later') + '">⏰ ' + esc(fdWhen(oc.at, now0)) + '</span>' : '')
+        + (oc.miss >= 2 ? '<span class="badge bg-o-noans">📵 ×' + oc.miss + '</span>' : '');
+      var dl = ((state && state.deliv) || {})[o.id];
+      if (dl && dl.awb) meta.push('📦 ' + esc(dl.awb) + (dl.auto ? ' 🔗' : ''));
       // Сначала родные имена из админки, затем наши подписи — статус может
       // прийти и со страницы, и из кеша после смены через расширение.
       var stCls = /отмен/i.test(stTxt) ? 'bg-o-cancel'
@@ -456,8 +505,13 @@
           }).join('') +
           '</select>' +
           '<button class="ghost" onclick="ordApplyStatus(' + o.id + ')" style="margin-top:8px;">Сменить статус</button>';
+        if (/оформ|процесс|законч/i.test(o.status || '')) {
+          detHtml += '<label style="display:block;font-size:11px;font-weight:800;color:#777;margin:12px 0 4px;">⏰ Перезвонить (напомнит компьютер)</label><div class="cbchips">'
+            + ['1h', '17', 'tom10'].map(function (p) { return '<button class="chip" onclick="ordCb(' + o.id + ',\'' + p + '\')">' + esc(fdPresetLabel(p)) + '</button>'; }).join('')
+            + (oc.at ? '<button class="chip" onclick="ordCb(' + o.id + ',\'off\')">✕</button>' : '') + '</div>';
+        }
       }
-      return '<div class="card' + (pend[o.id] ? ' pending' : '') + '" >' + stBadge +
+      return '<div class="card' + (pend[o.id] ? ' pending' : '') + '" >' + stBadge + cbBadge +
         '<div class="ttl" onclick="ordToggle(' + o.id + ')">#' + esc(String(o.id)) + ' · ' + esc(o.name || o.type || '') + ' <span style="color:#bbb;font-weight:400;">' + (open ? '▲' : '▼') + '</span></div>' +
         (meta.length ? '<div class="meta">' + meta.join(' &nbsp;·&nbsp; ') + '</div>' : '') + detHtml + '</div>';
     }).join('');
@@ -469,8 +523,333 @@
     if (!sel || !sel.value) return;
     if (!confirm('Сменить статус заказа #' + id + ' на «' + statusText(sel.value) + '»?')) return;
     opPush({ op: 'orderStatus', id: id, status: sel.value });
+    // Перезвон — как на компьютере: «Не ответил» — счётчик подряд +1 и через час;
+    // «Позвонить позже» — через 2 ч; любой другой — напоминание больше не нужно.
+    var o = ((state && state.orders) || []).find(function (x) { return x && x.id === id; }) || {};
+    var c = fdOrderCb(id);
+    if (sel.value === 'inproccess') opPush({ op: 'callback', kind: 'order', id: id, at: fdPresetAt('1h'), miss: (c.miss || 0) + 1, st: 'inproccess', name: o.name || '', phone: o.phone || '' });
+    else if (sel.value === 'finished') opPush({ op: 'callback', kind: 'order', id: id, at: (c.at > Date.now()) ? c.at : fdPresetAt('2h'), miss: 0, st: 'finished', name: o.name || '', phone: o.phone || '' });
+    else if (c.at || c.miss) opPush({ op: 'callback', kind: 'order', id: id, at: 0, miss: 0 });
     render();
     toast('🛒 Отправлено — компьютер применит в течение минуты');
+  };
+  // Время перезвона по заказу (без смены статуса).
+  window.ordCb = function (id, preset) {
+    var o = ((state && state.orders) || []).find(function (x) { return x && x.id === id; }) || {};
+    var c = fdOrderCb(id);
+    var at = preset === 'off' ? 0 : fdPresetAt(preset);
+    opPush({ op: 'callback', kind: 'order', id: id, at: at, miss: c.miss || 0, st: /процесс/i.test(o.status || '') ? 'inproccess' : 'finished', name: o.name || '', phone: o.phone || '' });
+    render();
+    toast(at ? ('⏰ Перезвонить ' + fdWhen(at)) : '⏰ Напоминание снято');
+  };
+
+  /* ── ЗВОНКИ: «📞 Сегодня позвонить» + заявки на звонок (v1.49) ──
+     Список и заявки собирает компьютер (фон расширения) и присылает в снимке.
+     Отсюда уходят команды: feedStatus (статус + заметка в комментарий заявки)
+     и callback (время перезвона / счётчик недозвонов). Значения — абсолютные
+     («в 17:00», «не ответил 2 раза»), поэтому повтор команды ничего не портит. */
+  var FD_STATUSES = [
+    { k: 'noanswer', t: '📵 Не ответил' }, { k: 'later', t: '🕒 Перезвонить позже' },
+    { k: 'done', t: '✅ Завершён' }, { k: 'ordered', t: '🛒 Оформил заказ' },
+    { k: 'nostock', t: 'Нет в наличии' }, { k: 'waiting', t: 'Ждёт поставку' },
+    { k: 'refused', t: 'Отказался' }, { k: 'badnum', t: 'Неверный номер' },
+    { k: 'dup', t: 'Дубликат' }, { k: 'none', t: 'Не звонили' }
+  ];
+  var FD_BADGE = { none: 'bg-o-new', noanswer: 'bg-o-noans', later: 'bg-o-later', done: 'bg-o-appr', ordered: 'bg-o-appr', nostock: 'bg-o-del', waiting: 'bg-o-del', refused: 'bg-o-cancel', badnum: 'bg-o-cancel', dup: 'bg-o-cancel', note: 'bg-done' };
+  // Те же тексты, что SMS_TPL_DEF в editor.html; свои правки шаблонов приходят в state.smsTpl.
+  var FD_SMS = [
+    { k: 'noanswer', t: 'Не дозвонились', ru: 'Veritan.md: {имя}, не дозвонились до вас. Перезвоним позже.', ro: 'Veritan.md: {nume}, nu v-am găsit la telefon. Vă sunăm curând.' },
+    { k: 'later', t: 'Перезвоним', ru: 'Veritan.md: {имя}, перезвоним в будни с 9:00 до 18:00.', ro: 'Veritan.md: {nume}, vă sunăm în program: luni-vineri 9:00-18:00.' },
+    { k: 'nostock', t: 'Нет в наличии', ru: 'Veritan.md: {имя}, товара сейчас нет. Сообщим, когда появится.', ro: 'Veritan.md: {nume}, produsul lipsește. Vă anunțăm când apare.' },
+    { k: 'ordered', t: 'Заказ принят', ru: 'Veritan.md: {имя}, спасибо за заказ! Скоро свяжемся с вами.', ro: 'Veritan.md: {nume}, mulțumim pentru comandă! Vă sunăm curând.' }
+  ];
+  var FD_STOCK_SMS = { ru: 'Veritan.md: «{товар}» уже в наличии ({цена}). {ссылка}', ro: 'Veritan.md: «{produs}» este în stoc ({pret}). {link}' };
+  var fdFilter = localStorage.getItem('vp_fd_filter') || 'today';
+  var fdLang = localStorage.getItem('vp_fd_lang') || '';
+  var fdSel = null;   // открытая в листе заявка: {id, key, cbAt, ...}
+
+  function fdPad(n) { return ('0' + n).slice(-2); }
+  function fdHHMM(ms) { var d = new Date(ms); return fdPad(d.getHours()) + ':' + fdPad(d.getMinutes()); }
+  function fdWhen(ms, now) {
+    now = now || Date.now();
+    var a = new Date(ms); a.setHours(0, 0, 0, 0);
+    var b = new Date(now); b.setHours(0, 0, 0, 0);
+    var dd = Math.round((a.getTime() - b.getTime()) / 86400000);
+    if (dd === 0) return 'сегодня ' + fdHHMM(ms);
+    if (dd === 1) return 'завтра ' + fdHHMM(ms);
+    if (dd === -1) return 'вчера ' + fdHHMM(ms);
+    var d = new Date(ms); return fdPad(d.getDate()) + '.' + fdPad(d.getMonth() + 1) + ' ' + fdHHMM(ms);
+  }
+  // Копия cbPresetAt (editor.html) / vcPresetAt (background.js): менять все три сразу.
+  function fdPresetAt(preset, now) {
+    now = now || Date.now();
+    var d = new Date(now);
+    if (preset === '17') { d.setHours(17, 0, 0, 0); if (d.getTime() <= now) d.setDate(d.getDate() + 1); return d.getTime(); }
+    if (preset === 'tom10') { d.setDate(d.getDate() + 1); d.setHours(10, 0, 0, 0); return d.getTime(); }
+    var mins = preset === '2h' ? 120 : (preset === '30m' ? 30 : 60);
+    var at = Math.ceil((now + mins * 60000) / 300000) * 300000;
+    var t = new Date(at), h = t.getHours();
+    if (h >= 21 || h < 9) { if (h >= 21) t.setDate(t.getDate() + 1); t.setHours(10, 0, 0, 0); at = t.getTime(); }
+    return at;
+  }
+  function fdPresetLabel(p) { if (p === '1h') return '+1 ч'; if (p === '17') return new Date().getHours() >= 17 ? 'завтра 17:00' : '17:00'; if (p === 'tom10') return 'завтра 10:00'; return p; }
+  // Копия ordWaPhone (editor.html): номер для СМС и WhatsApp — 373XXXXXXXX.
+  function fdDigits(raw) {
+    var d = String(raw || '').replace(/\D/g, '');
+    if (!d) return '';
+    if (d.indexOf('00') === 0) d = d.slice(2);
+    if (d.indexOf('373') === 0) return d;
+    if (d.charAt(0) === '0') d = d.slice(1);
+    if (d.length === 8) return '373' + d;
+    if (d.length >= 11) return d;
+    return '373' + d;
+  }
+  function fdP8(p) { var d = String(p || '').replace(/\D/g, ''); return d.length >= 8 ? d.slice(-8) : ''; }
+  function fdSmsHref(phone, text) { var d = fdDigits(phone); return d ? ('sms:+' + d + (text ? '&body=' + encodeURIComponent(text) : '')) : ''; }
+  function fdWaHref(phone, text) { var d = fdDigits(phone); return d ? ('https://wa.me/' + d + (text ? '?text=' + encodeURIComponent(text) : '')) : ''; }
+  function fdTpl(k, lg) {
+    var u = (state && state.smsTpl) || {};
+    if (u[k] && typeof u[k][lg] === 'string' && u[k][lg]) return u[k][lg];
+    var d = FD_SMS.filter(function (x) { return x.k === k; })[0];
+    return d ? d[lg] : '';
+  }
+  function fdFill(t, vars, lg) {
+    var name = String((vars && vars.name) || '').trim() || (lg === 'ro' ? 'client' : 'клиент');
+    return String(t || '').replace(/\{имя\}|\{name\}|\{nume\}/gi, name)
+      .replace(/\{товар\}|\{product\}|\{produs\}/gi, (vars && vars.product) || '')
+      .replace(/\{цена\}|\{price\}|\{pret\}/gi, (vars && vars.price) || '')
+      .replace(/\{ссылка\}|\{link\}/gi, (vars && vars.link) || '')
+      .replace(/\{id\}|\{номер\}|\{nr\}/gi, (vars && vars.id) || '')
+      .replace(/\s*\(\s*\)/g, '').replace(/[ \t]{2,}/g, ' ').replace(/ +([.,!?])/g, '$1').trim();
+  }
+  function fdLg() { return fdLang === 'ro' || fdLang === 'ru' ? fdLang : ((state && state.smsLang) || 'ru'); }
+  function fdOrderCb(id) { var c = ((state && state.ocb) || {})[id] || {}; var p = fdPendCb('order', id); return p || c; }
+  // Команды в очереди телефона — поверх снимка, пока компьютер их не применил.
+  function fdPend() {
+    var p = {};
+    opsQueue().forEach(function (o) {
+      if (o.op === 'feedStatus' && o.id) { p[o.id] = p[o.id] || {}; p[o.id].key = o.key; if (o.note != null) p[o.id].note = o.note; p[o.id].busy = 1; }
+    });
+    return p;
+  }
+  function fdPendCb(kind, id) {
+    var r = null;
+    opsQueue().forEach(function (o) { if (o.op === 'callback' && o.kind === kind && String(o.id) === String(id)) r = { at: o.at || 0, miss: o.miss || 0, busy: 1 }; });
+    return r;
+  }
+  function fdRows() {
+    var pend = fdPend();
+    return ((state && state.feed) || []).map(function (r) {
+      var x = JSON.parse(JSON.stringify(r)), p = pend[r.id], c = fdPendCb('feed', r.id);
+      if (p) { x.key = p.key; if (p.note != null) x.note = p.note; x._pending = 1; }
+      if (c) { x.cbAt = c.at; x.miss = c.miss; x._pending = 1; }
+      return x;
+    });
+  }
+  function fdIsOpen(k) { return k === 'none' || k === 'noanswer' || k === 'later'; }
+  function fdEnd(now) { var d = new Date(now); d.setHours(23, 59, 59, 999); return d.getTime(); }
+  function fdToday() {
+    var now = Date.now(), pend = fdPend();
+    var items = ((state && state.today) || []).map(function (it) { return JSON.parse(JSON.stringify(it)); }).filter(function (it) {
+      if (it.kind === 'feed' && pend[it.id] && !fdIsOpen(pend[it.id].key)) return false;   // уже закрыли с телефона
+      return true;
+    });
+    items.forEach(function (it) {
+      var c = (it.kind === 'feed' || it.kind === 'order') ? fdPendCb(it.kind, it.id) : null;
+      if (c) { it.at = c.at; it.miss = c.miss; it._pending = 1; }
+      if (it.kind === 'feed' && pend[it.id]) { it.why = pend[it.id].key; it._pending = 1; }
+    });
+    items = items.filter(function (it) { return !it.at || it.at <= fdEnd(now); });
+    var rank = function (it) {
+      if (it.at && it.at <= now) return 0;
+      if (it.at) return 5;
+      if (it.kind === 'feed' && it.why === 'none') return 1;
+      if (it.kind === 'order' && it.why === 'new') return 2;
+      if (it.kind === 'watch' && it.why === 'ready') return 3;
+      return 4;
+    };
+    return items.sort(function (a, b) { var ra = rank(a), rb = rank(b); return ra !== rb ? ra - rb : ((a.at || a.since || 0) - (b.at || b.since || 0)); });
+  }
+  function fdTabCount() {
+    var el = document.getElementById('tbFeedN');
+    if (!el) return;
+    var n = state ? fdToday().length : 0;
+    el.innerHTML = n ? '<span class="tcount">' + n + '</span>' : '';
+  }
+  function fdWhy(it, now) {
+    if (it.at) {
+      var due = it.at <= now;
+      if (it.why === 'informed') return due ? '📣 сообщили — ответа нет, перезвони' : '📣 сообщили — ждём ответа (до ' + fdWhen(it.at, now) + ')';
+      if (it.why === 'task') return (due ? '<b class="due">срок прошёл</b> · ' : 'срок ') + fdWhen(it.at, now);
+      return (due ? '<b class="due">⏰ пора перезвонить</b> (' + fdHHMM(it.at) + ')' : '⏰ перезвонить ' + fdWhen(it.at, now)) + (it.why === 'noanswer' ? ' · 📵 не ответил' : '') + (it.miss >= 2 ? ' ×' + it.miss : '');
+    }
+    if (it.why === 'none') return '🆕 не звонили' + (it.win ? ' · просил(а) ' + esc(it.win) : '');
+    if (it.why === 'new') return '🛒 новый заказ' + (it.price ? ' · ' + esc(it.price) + ' лей' : '');
+    if (it.why === 'ready') return '📦 товар пришёл: <b>' + esc(it.product || 'товар') + '</b>';
+    if (it.why === 'noanswer') return '📵 не ответил' + (it.miss >= 2 ? ' ×' + it.miss : '') + ' · время не назначено';
+    if (it.why === 'later') return '🕒 перезвонить позже · время не назначено';
+    if (it.why === 'informed') return '📣 сообщили — ждём ответа';
+    return '';
+  }
+  function fdNote(phone) { var n = ((state && state.notes) || {})[fdP8(phone)]; return n ? '<span class="ctx">📝 ' + esc(n.length > 70 ? n.slice(0, 68) + '…' : n) + '</span>' : ''; }
+  function fdCallBtn(phone, id) { return phone ? '<a class="b b-call" href="' + telHref(phone) + '"' + (id ? ' onclick="fdCalled(' + id + ')"' : '') + '>📞 Позвонить</a>' : ''; }
+  function fdTodayCard(it, now) {
+    var due = it.at && it.at <= now;
+    var src = it.kind === 'feed' ? ('заявка #' + esc(it.id)) : it.kind === 'order' ? ('заказ #' + esc(it.id)) : it.kind === 'watch' ? 'отслеживание' : 'задача';
+    var who = esc((it.name || '').trim() || (it.kind === 'task' ? (it.title || '') : '') || '—');
+    var btns = fdCallBtn(it.phone, it.kind === 'feed' ? it.id : 0);
+    if (it.kind === 'feed') btns += '<button class="b b-edit" style="flex:0 0 64px;" onclick="fdOpen(' + it.id + ')">✏️</button>';
+    else if (it.kind === 'order') btns += '<button class="b b-edit" style="flex:0 0 64px;" onclick="fdOrder(' + it.id + ')">🛒</button>';
+    else if (it.kind === 'watch' && it.why === 'ready') {
+      var sms = fdStockSms(it.id);
+      if (sms) btns += '<a class="b b-sms" href="' + sms + '">✉️</a>';
+      btns += '<button class="b b-done" style="flex:0 0 86px;" onclick="fdInformed(\'' + it.id + '\')" title="Отметить: клиенту сообщили">📣 Сообщил</button>';
+    } else if (it.kind === 'watch' || it.kind === 'task') btns += '<button class="b b-done" style="flex:0 0 64px;" onclick="opStatus(\'' + it.id + '\',\'done\')">✅</button>';
+    return '<div class="card k-' + it.kind + (due ? ' due' : '') + (it._pending ? ' pending' : '') + '">'
+      + '<div class="ttl">' + who + ' <span style="color:#aaa;font-weight:600;font-size:11.5px;">· ' + src + '</span></div>'
+      + '<div class="why">' + fdWhy(it, now) + (it._pending ? ' · отправляется…' : '') + '</div>'
+      + (it.phone ? '<div class="meta">📞 <a href="' + telHref(it.phone) + '"' + (it.kind === 'feed' ? ' onclick="fdCalled(' + it.id + ')"' : '') + '>' + esc(it.phone) + '</a>' + '</div>' : '')
+      + fdNote(it.phone)
+      + '<div class="row">' + btns + '</div></div>';
+  }
+  function fdFeedCard(r, now) {
+    var badge = '<span class="badge ' + (FD_BADGE[r.key] || 'bg-done') + '">' + esc(r.key === 'note' ? 'есть заметка' : (fdLabel(r.key) || r.key)) + (r.when ? ' · ' + esc(r.when) : '') + (r._pending ? ' · отправляется…' : '') + '</span>';
+    if (r.cbAt) badge += '<span class="badge ' + (r.cbAt <= now ? 'bg-out' : 'bg-o-later') + '">⏰ ' + esc(fdWhen(r.cbAt, now)) + '</span>';
+    if (r.miss >= 2) badge += '<span class="badge bg-o-noans">📵 ×' + r.miss + '</span>';
+    var meta = [];
+    if (r.phone) meta.push('📞 <a href="' + telHref(r.phone) + '" onclick="fdCalled(' + r.id + ')">' + esc(r.phone) + '</a>');
+    if (r.date) meta.push('🕒 ' + esc(r.date));
+    if (r.win) meta.push('⏱ просил(а) ' + esc(r.win));
+    var sms = r.phone ? fdSmsHref(r.phone, fdFill(fdTpl(r.key === 'later' ? 'later' : 'noanswer', fdLg()), { name: r.name }, fdLg())) : '';
+    return '<div class="card k-feed' + (r._pending ? ' pending' : '') + '">' + badge
+      + '<div class="ttl" onclick="fdOpen(' + r.id + ')">#' + esc(String(r.id)) + ' · ' + esc(r.name || '—') + '</div>'
+      + (meta.length ? '<div class="meta">' + meta.join(' &nbsp;·&nbsp; ') + '</div>' : '')
+      + (r.note ? '<div class="meta" style="color:#555;">📝 ' + esc(r.note) + '</div>' : '')
+      + fdNote(r.phone)
+      + '<div class="row">' + fdCallBtn(r.phone, r.id) + (sms ? '<a class="b b-sms" href="' + sms + '">✉️</a>' : '') + '<button class="b b-edit" style="flex:0 0 64px;" onclick="fdOpen(' + r.id + ')">✏️</button></div>'
+      + '</div>';
+  }
+  function fdLabel(k) { for (var i = 0; i < FD_STATUSES.length; i++) if (FD_STATUSES[i].k === k) return FD_STATUSES[i].t.replace(/^[^\wА-Яа-яЁё]+\s*/, ''); return ''; }
+  function renderFeed(box) {
+    var now = Date.now();
+    var chips = [['today', 'Сегодня'], ['all', 'Все заявки'], ['none', 'Не звонили'], ['noanswer', 'Не ответил'], ['later', 'Перезвонить'], ['closed', 'Закрытые']];
+    var h = '<div>' + chips.map(function (c) { return '<button class="chip' + (fdFilter === c[0] ? ' on' : '') + '" onclick="fdFilterSet(\'' + c[0] + '\')">' + c[1] + '</button>'; }).join('') + '</div>';
+    if (state.feedErr) h += '<div class="err">⚠ Заявки могут быть неполными: ' + (state.feedErr === 'login' ? 'на компьютере нет входа в админку' : 'админка не отвечает') + '.</div>';
+    if (fdFilter === 'today') {
+      var items = fdToday();
+      h += '<div class="sec">📞 Сегодня позвонить — ' + items.length + '</div>';
+      h += items.length ? items.map(function (it) { return fdTodayCard(it, now); }).join('') : '<div class="empty">Сегодня звонить некому 🎉<br><span style="font-size:11px;">Новые заявки, заказы и пришедший товар появятся здесь сами.</span></div>';
+    } else {
+      var rows = fdRows().filter(function (r) {
+        if (fdFilter === 'all') return true;
+        if (fdFilter === 'closed') return !fdIsOpen(r.key) && r.key !== 'note';
+        return r.key === fdFilter;
+      });
+      h += '<div class="sec">Заявки на звонок — ' + rows.length + '</div>';
+      h += rows.length ? rows.map(function (r) { return fdFeedCard(r, now); }).join('') : '<div class="empty">Заявок нет<br><span style="font-size:11px;">(компьютер должен быть залогинен в админку)</span></div>';
+    }
+    box.innerHTML = h;
+  }
+  window.fdFilterSet = function (f) { fdFilter = f; try { localStorage.setItem('vp_fd_filter', f); } catch (e) {} render(); };
+  window.fdOrder = function (id) { ordOpen[id] = true; setTab('orders'); };
+  // Позвонил — запоминаем: вернёшься в приложение, и лист с итогом звонка откроется сам.
+  window.fdCalled = function (id) { try { localStorage.setItem('vp_lastcall', JSON.stringify({ id: id, at: Date.now() })); } catch (e) {} };
+  function fdStockSms(taskId) {
+    var t = ((state && state.tasks) || []).find(function (x) { return x && x.id === taskId; });
+    if (!t || !t.phone) return '';
+    var s = ((state && state.stock) || {})[t.id] || {};
+    var lg = fdLg();
+    var link = t.link ? String(/^https?:/i.test(t.link) ? t.link : ('https://www.veritan.md' + (t.link.charAt(0) === '/' ? '' : '/') + t.link)).replace(/\/(ru|ro)\//, '/' + lg + '/') : '';
+    var product = s.pname || String(t.title || '').replace(/^\s*(?:de\s+sunat[^:]{0,40}|sun[ăa]\s+c[âa]nd[^:]{0,40}|позвон[^:]{0,40}|перезвон[^:]{0,40})\s*[:\-–]\s*/i, '') || t.code || 'товар';
+    var u = (state && state.smsTpl) || {};
+    var tpl = (u.s_came && u.s_came[lg]) || FD_STOCK_SMS[lg];
+    return fdSmsHref(t.phone, fdFill(tpl, { product: product, price: s.price || '', link: link }, lg));
+  }
+  // «📣 Сообщил»: задача → «сообщили, ждём ответа», напоминание завтра в 10:00 (как на компьютере).
+  window.fdInformed = function (taskId) {
+    var d = new Date(); d.setDate(d.getDate() + 1); d.setHours(10, 0, 0, 0);
+    var dl = d.getFullYear() + '-' + fdPad(d.getMonth() + 1) + '-' + fdPad(d.getDate()) + 'T10:00';
+    opPush({ op: 'taskPatch', id: taskId, set: { informedAt: Date.now(), informedVia: 'sms', deadline: dl, snoozeUntil: d.getTime(), remind: 0 } });
+    if (state && state.today) state.today.forEach(function (it) { if (it.kind === 'watch' && it.id === taskId) { it.why = 'informed'; it.at = d.getTime(); } });
+    render();
+    toast('📣 Отмечено: сообщили. Если не ответит — напомню завтра в 10:00');
+  };
+
+  // ── Лист заявки ──
+  window.fdOpen = function (id) {
+    var r = fdRows().find(function (x) { return x && x.id === id; });
+    if (!r) {
+      var it = ((state && state.today) || []).find(function (x) { return x.kind === 'feed' && String(x.id) === String(id); });
+      if (!it) { toast('⚠ Заявки нет в последних — открой её на компьютере'); return; }
+      r = { id: id, name: it.name, phone: it.phone, key: it.why, note: '', cbAt: it.at, miss: it.miss, date: '' };
+    }
+    fdSel = { id: id, row: r, key: r.key === 'note' ? '' : r.key, cbAt: r.cbAt || 0, cbTouched: false, smsTpl: r.key === 'later' ? 'later' : 'noanswer' };
+    document.getElementById('fdTitle').textContent = 'Заявка #' + id + ' · ' + (r.name || '—');
+    document.getElementById('fdWho').innerHTML = (r.phone ? '📞 <a href="' + telHref(r.phone) + '" style="color:#0a6e8a;font-weight:700;text-decoration:none;" onclick="fdCalled(' + id + ')">' + esc(r.phone) + '</a>' : '') + (r.win ? ' · ⏱ просил(а) ' + esc(r.win) : '') + (r.miss ? ' · 📵 не ответил ' + r.miss + ' раз(а) подряд' : '');
+    document.getElementById('fdNote').value = r.note || '';
+    document.getElementById('fdNote').setAttribute('data-orig', r.note || '');
+    document.getElementById('fdSmsMark').checked = false;
+    fdPaint();
+    document.getElementById('sheetBg').style.display = 'block';
+    document.getElementById('feedSheet').style.display = 'block';
+  };
+  function fdPaint() {
+    if (!fdSel) return;
+    var now = Date.now();
+    document.getElementById('fdSt').innerHTML = FD_STATUSES.map(function (s) {
+      return '<button class="stbtn' + (fdSel.key === s.k ? ' on' : '') + '" onclick="fdPick(\'' + s.k + '\')">' + esc(s.t) + '</button>';
+    }).join('');
+    var cb = ['1h', '17', 'tom10'].map(function (p) { return '<button class="chip" onclick="fdCbSet(\'' + p + '\')">' + esc(fdPresetLabel(p)) + '</button>'; }).join('')
+      + '<button class="chip" onclick="fdCbSet(\'off\')">✕ без напоминания</button>';
+    cb += '<div style="width:100%;font-size:12.5px;font-weight:800;color:' + (fdSel.cbAt && fdSel.cbAt <= now ? '#c62828' : '#5f3dc4') + ';margin-top:2px;">'
+      + (fdSel.cbAt ? '→ перезвонить ' + esc(fdWhen(fdSel.cbAt, now)) : (fdIsOpen(fdSel.key) ? 'время не назначено' : '—')) + '</div>';
+    document.getElementById('fdCb').innerHTML = cb;
+    var lg = fdLg();
+    document.getElementById('fdSmsTpl').innerHTML = '<button class="chip' + (lg === 'ru' ? ' on' : '') + '" onclick="fdLangSet(\'ru\')">RU</button><button class="chip' + (lg === 'ro' ? ' on' : '') + '" onclick="fdLangSet(\'ro\')">RO</button>'
+      + FD_SMS.map(function (s) { return '<button class="chip' + (fdSel.smsTpl === s.k ? ' on' : '') + '" onclick="fdSmsPick(\'' + s.k + '\')">' + esc(s.t) + '</button>'; }).join('');
+    var text = fdFill(fdTpl(fdSel.smsTpl, lg), { name: fdSel.row.name }, lg);
+    var sms = fdSmsHref(fdSel.row.phone, text), wa = fdWaHref(fdSel.row.phone, text);
+    document.getElementById('fdSmsRow').innerHTML = (sms ? '<a class="b b-sms" style="flex:1;" href="' + sms + '" onclick="fdSmsSent()">✉️ СМС</a>' : '') + (wa ? '<a class="b b-done" style="flex:1;" href="' + wa + '" target="_blank" onclick="fdSmsSent()">💬 WhatsApp</a>' : '')
+      + '<div class="note" style="width:100%;margin-top:6px;">' + esc(text) + '</div>';
+    document.getElementById('fdSmsRow').style.flexWrap = 'wrap';
+  }
+  window.fdPick = function (k) {
+    fdSel.key = k;
+    if (k === 'noanswer') fdSel.missTap = true;   // нажали «Не ответил» — это ещё одна попытка, даже если статус уже такой
+    // Как на компьютере: «Не ответил» — через час, «Перезвонить позже» — через 2 ч
+    // (если время не выбрали сами); закрытый статус — без напоминания.
+    if (!fdSel.cbTouched) fdSel.cbAt = (k === 'noanswer') ? fdPresetAt('1h') : (k === 'later' ? ((fdSel.row.cbAt > Date.now()) ? fdSel.row.cbAt : fdPresetAt('2h')) : 0);
+    if (k === 'later' || k === 'noanswer') fdSel.smsTpl = k;
+    fdPaint();
+  };
+  window.fdCbSet = function (p) {
+    fdSel.cbTouched = true;
+    fdSel.cbAt = p === 'off' ? 0 : fdPresetAt(p);
+    if (fdSel.cbAt && !fdIsOpen(fdSel.key)) fdSel.key = (fdSel.row.key === 'noanswer') ? 'noanswer' : 'later';   // назначили время — значит, звонить ещё будем
+    if (fdSel.cbAt && fdSel.key === 'none') fdSel.key = 'later';
+    fdPaint();
+  };
+  window.fdLangSet = function (l) { fdLang = l; try { localStorage.setItem('vp_fd_lang', l); } catch (e) {} fdPaint(); };
+  window.fdSmsPick = function (k) { fdSel.smsTpl = k; fdPaint(); };
+  window.fdSmsSent = function () { var c = document.getElementById('fdSmsMark'); if (c) c.checked = true; };
+  window.fdSave = function () {
+    if (!fdSel) return;
+    var r = fdSel.row, id = fdSel.id;
+    var noteEl = document.getElementById('fdNote');
+    var noteChanged = noteEl.value !== (noteEl.getAttribute('data-orig') || '');
+    var smsMark = !!document.getElementById('fdSmsMark').checked;
+    // Статус не выбирали — остаётся прежний; у чужой заметки без нашей метки
+    // ('note') правится только текст, метку не ставим — как на компьютере.
+    var key = fdSel.key || r.key || 'none';
+    var keyChanged = key !== r.key;
+    if (keyChanged || noteChanged || smsMark) opPush({ op: 'feedStatus', id: id, key: key, note: noteChanged ? noteEl.value.trim() : null, smsMark: smsMark });
+    // Счётчик недозвонов подряд: «Не ответил» +1; дозвонились («позже» и закрытые) — ноль.
+    var prevMiss = parseInt(r.miss, 10) || 0;
+    var miss = (key === 'noanswer') ? (fdSel.missTap ? (r.key === 'noanswer' ? prevMiss + 1 : 1) : prevMiss) : 0;
+    var at = fdIsOpen(key) ? (fdSel.cbAt || 0) : 0;
+    if (at !== (r.cbAt || 0) || miss !== prevMiss) opPush({ op: 'callback', kind: 'feed', id: id, at: at, miss: miss, st: key, name: r.name || '', phone: r.phone || '' });
+    closeSheets(); render();
+    toast('📞 Отправлено' + (at ? ' · перезвонить ' + fdWhen(at) : '') + (miss >= 2 ? ' · ' + miss + '-й недозвон — отправь СМС' : ''));
   };
 
   /* ── WEIGHTS ── */
@@ -723,8 +1102,15 @@
       state = s || {};
       var confirmed = {};
       (state.consumedOps || []).forEach(function (id) { confirmed[id] = 1; });
+      // Компьютер сообщил, что команда НЕ прошла (например, нет входа в админку) —
+      // говорим об этом, а не молча возвращаем карточку в прежний статус.
+      var errs = [];
+      opsQueue().forEach(function (o) { var e = (state.opErr || {})[o.oid]; if (e && e.msg) errs.push(e.msg); });
+      if (errs.length) setTimeout(function () { toast('⚠ Не записалось: ' + errs.join('; ')); }, 300);
       var q = opsQueue().filter(function (o) {
         if (confirmed[o.oid]) return false;   // computer confirmed this op — done
+        // Новые команды (v1.49) держим, пока компьютер их не подтвердит.
+        if (o.op === 'feedStatus' || o.op === 'callback' || o.op === 'taskPatch') return true;
         // fallback checks (older extension without consumedOps): drop when reflected
         if (o.op === 'add' || o.op === 'update') return !(state.tasks || []).some(function (t) { return t && t.id === o.task.id && (o.op === 'add' || JSON.stringify(t) === JSON.stringify(o.task)); });
         if (o.op === 'status') { var t = (state.tasks || []).find(function (x) { return x && x.id === o.id; }); return !(t && t.status === o.status); }
@@ -754,7 +1140,7 @@
     document.getElementById('sheetBg').style.display = 'block';
     document.getElementById('cfgSheet').style.display = 'block';
   };
-  window.closeSheets = function () { ['sheetBg', 'editSheet', 'cfgSheet'].forEach(function (i) { document.getElementById(i).style.display = 'none'; }); };
+  window.closeSheets = function () { ['sheetBg', 'editSheet', 'cfgSheet', 'feedSheet'].forEach(function (i) { document.getElementById(i).style.display = 'none'; }); fdSel = null; };
   window.saveCfg = function () {
     var t = document.getElementById('cT').value.trim(), g = document.getElementById('cG').value.trim();
     if (!t || !g) { toast('⚠ Заполни оба поля'); return; }
@@ -764,9 +1150,18 @@
   };
 
   loadCfg();
-  render();
+  setTab(tab);
   if (cfg) window.refresh();
-  document.addEventListener('visibilitychange', function () { if (!document.hidden && cfg) window.refresh(); });
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden || !cfg) return;
+    window.refresh();
+    // Вернулись после звонка клиенту по заявке — сразу лист «что получилось».
+    var lc = null; try { lc = JSON.parse(localStorage.getItem('vp_lastcall') || 'null'); } catch (e) { lc = null; }
+    if (lc && lc.id && (Date.now() - lc.at) > 4000 && (Date.now() - lc.at) < 30 * 60000) {
+      try { localStorage.removeItem('vp_lastcall'); } catch (e) {}
+      setTimeout(function () { if (state && !fdSel) fdOpen(lc.id); }, 900);
+    }
+  });
 })();
 </script>
 </body>
