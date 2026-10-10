@@ -182,7 +182,7 @@
 <script>
 (function () {
   'use strict';
-  var PAGE_VER = '1.49.0';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
+  var PAGE_VER = '1.50.0';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
   var API = 'https://api.github.com';
   var state = null, tab = localStorage.getItem('vp_tab') || 'tasks', cfg = null, editId = null;
   if (['find', 'feed', 'tasks', 'stock', 'orders', 'weights', 'fan', 'check'].indexOf(tab) < 0) tab = 'tasks';
@@ -469,6 +469,11 @@
         + (oc.miss >= 2 ? '<span class="badge bg-o-noans">📵 ×' + oc.miss + '</span>' : '');
       var dl = ((state && state.deliv) || {})[o.id];
       if (dl && dl.awb) meta.push('📦 ' + esc(dl.awb) + (dl.auto ? ' 🔗' : ''));
+      // v1.50: проблема с посылкой / расхождение наложенного (считает компьютер), причина отмены.
+      if (dl && dl.prob) cbBadge += '<span class="badge bg-out">🚚 ' + esc(dl.prob) + '</span>';
+      if (dl && dl.cod) cbBadge += '<span class="badge bg-out">💰 ' + esc(dl.cod) + '</span>';
+      var crTxt = ((state && state.cr) || {})[o.id];
+      if (crTxt) meta.push('✖ ' + esc(crTxt));
       // Сначала родные имена из админки, затем наши подписи — статус может
       // прийти и со страницы, и из кеша после смены через расширение.
       var stCls = /отмен/i.test(stTxt) ? 'bg-o-cancel'
@@ -495,7 +500,7 @@
           detHtml += '<div class="meta" style="padding:8px 0;">Состав ещё не загружен с компьютера — появится после ближайшей синхронизации.</div>';
         }
         detHtml += '<label style="display:block;font-size:11px;font-weight:800;color:#777;margin:10px 0 4px;">Статус заказа</label>' +
-          '<select id="ost-' + o.id + '" style="width:100%;font-family:inherit;font-size:14px;padding:10px;border:1px solid #ddd;border-radius:10px;background:#fafaf8;">' +
+          '<select id="ost-' + o.id + '" onchange="ordStSel(' + o.id + ')" style="width:100%;font-family:inherit;font-size:14px;padding:10px;border:1px solid #ddd;border-radius:10px;background:#fafaf8;">' +
           ORD_STATUSES.map(function (s) {
             // Отмечаем выбранным по РОДНОМУ имени из админки — именно оно
             // приходит в o.status; нашу подпись тоже принимаем на всякий случай.
@@ -503,6 +508,10 @@
             var on = cur.indexOf(String(s.site || '').toLowerCase()) === 0 || cur.indexOf(String(s.t).toLowerCase()) === 0;
             return '<option value="' + s.v + '"' + (on ? ' selected' : '') + '>' + s.t + '</option>';
           }).join('') +
+          '</select>' +
+          // Отмена — с причиной (v1.50), для «Недели в цифрах». Тот же список, что в панели.
+          '<select id="ocr-' + o.id + '" style="display:none;width:100%;margin-top:8px;font-family:inherit;font-size:14px;padding:10px;border:1px solid #f0c4be;border-radius:10px;background:#fff6f5;">' +
+          '<option value="">— почему отменили? —</option>' + CR_REASONS.map(function (r) { return '<option value="' + r.k + '">' + esc(r.t) + '</option>'; }).join('') +
           '</select>' +
           '<button class="ghost" onclick="ordApplyStatus(' + o.id + ')" style="margin-top:8px;">Сменить статус</button>';
         if (/оформ|процесс|законч/i.test(o.status || '')) {
@@ -518,11 +527,23 @@
   }
   window.ordFilterSet = function (f) { ordFilter = f; render(); };
   window.ordToggle = function (id) { ordOpen[id] = !ordOpen[id]; render(); };
+  var CR_REASONS = [
+    { k: 'nostock', t: 'Нет в наличии' }, { k: 'price', t: 'Дорого' }, { k: 'delivery', t: 'Доставка (цена или срок)' },
+    { k: 'changed', t: 'Передумал' }, { k: 'noreach', t: 'Не дозвонились' }, { k: 'dup', t: 'Дубль заказа' }, { k: 'other', t: 'Другое' }
+  ];
+  window.ordStSel = function (id) {
+    var sel = document.getElementById('ost-' + id), cr = document.getElementById('ocr-' + id);
+    if (cr) cr.style.display = (sel && sel.value === 'cancelled') ? '' : 'none';
+  };
   window.ordApplyStatus = function (id) {
     var sel = document.getElementById('ost-' + id);
     if (!sel || !sel.value) return;
+    var crSel = document.getElementById('ocr-' + id), reason = (crSel && sel.value === 'cancelled') ? crSel.value : '';
+    if (sel.value === 'cancelled' && !reason) { if (crSel) crSel.style.display = ''; toast('✖ Выбери, почему отменили'); return; }
     if (!confirm('Сменить статус заказа #' + id + ' на «' + statusText(sel.value) + '»?')) return;
-    opPush({ op: 'orderStatus', id: id, status: sel.value });
+    var op = { op: 'orderStatus', id: id, status: sel.value };
+    if (reason) op.reason = reason;
+    opPush(op);
     // Перезвон — как на компьютере: «Не ответил» — счётчик подряд +1 и через час;
     // «Позвонить позже» — через 2 ч; любой другой — напоминание больше не нужно.
     var o = ((state && state.orders) || []).find(function (x) { return x && x.id === id; }) || {};
@@ -665,6 +686,7 @@
       if (it.at) return 5;
       if (it.kind === 'feed' && it.why === 'none') return 1;
       if (it.kind === 'order' && it.why === 'new') return 2;
+      if (it.kind === 'parcel' || it.kind === 'cod') return 2;
       if (it.kind === 'watch' && it.why === 'ready') return 3;
       return 4;
     };
@@ -676,9 +698,14 @@
     var n = state ? fdToday().length : 0;
     el.innerHTML = n ? '<span class="tcount">' + n + '</span>' : '';
   }
+  // Посылки FAN — те же тексты, что FO_PROB_TEXT в background.js.
+  var FD_PROB = { delay: 'задержка при доставке', ret: 'посылка вернулась', wait: 'ждёт в отделении', slow: 'долго в пути', pickup: 'FAN не забрал посылку' };
   function fdWhy(it, now) {
+    if (it.kind === 'parcel') return '🚚 <b>' + esc(FD_PROB[it.why] || it.why) + ((it.why === 'wait' || it.why === 'slow' || it.why === 'pickup') ? ' — ' + (it.days || 0) + ' дн.' : '') + '</b>' + (it.awb ? ' · ' + esc(it.awb) : '');
+    if (it.kind === 'cod') return '💰 ' + esc(it.text || 'проверь наложенный платёж');
     if (it.at) {
       var due = it.at <= now;
+      if (it.why === 'invoice') return due ? '🧾 <b class="due">счёт не оплачен</b> — 3 дня прошло' + (it.price ? ' · ' + esc(it.price) + ' лей' : '') : '🧾 счёт: оплатить до ' + fdWhen(it.at, now);
       if (it.why === 'informed') return due ? '📣 сообщили — ответа нет, перезвони' : '📣 сообщили — ждём ответа (до ' + fdWhen(it.at, now) + ')';
       if (it.why === 'task') return (due ? '<b class="due">срок прошёл</b> · ' : 'срок ') + fdWhen(it.at, now);
       return (due ? '<b class="due">⏰ пора перезвонить</b> (' + fdHHMM(it.at) + ')' : '⏰ перезвонить ' + fdWhen(it.at, now)) + (it.why === 'noanswer' ? ' · 📵 не ответил' : '') + (it.miss >= 2 ? ' ×' + it.miss : '');
@@ -695,11 +722,12 @@
   function fdCallBtn(phone, id) { return phone ? '<a class="b b-call" href="' + telHref(phone) + '"' + (id ? ' onclick="fdCalled(' + id + ')"' : '') + '>📞 Позвонить</a>' : ''; }
   function fdTodayCard(it, now) {
     var due = it.at && it.at <= now;
-    var src = it.kind === 'feed' ? ('заявка #' + esc(it.id)) : it.kind === 'order' ? ('заказ #' + esc(it.id)) : it.kind === 'watch' ? 'отслеживание' : 'задача';
+    var src = it.kind === 'feed' ? ('заявка #' + esc(it.id)) : it.kind === 'order' ? ('заказ #' + esc(it.id)) : it.kind === 'watch' ? 'отслеживание'
+      : it.kind === 'parcel' ? ('посылка · заказ #' + esc(it.id)) : it.kind === 'cod' ? ('наложенный · заказ #' + esc(it.id)) : it.kind === 'invoice' ? ('счёт · заказ #' + esc(it.id)) : 'задача';
     var who = esc((it.name || '').trim() || (it.kind === 'task' ? (it.title || '') : '') || '—');
     var btns = fdCallBtn(it.phone, it.kind === 'feed' ? it.id : 0);
     if (it.kind === 'feed') btns += '<button class="b b-edit" style="flex:0 0 64px;" onclick="fdOpen(' + it.id + ')">✏️</button>';
-    else if (it.kind === 'order') btns += '<button class="b b-edit" style="flex:0 0 64px;" onclick="fdOrder(' + it.id + ')">🛒</button>';
+    else if (it.kind === 'order' || it.kind === 'parcel' || it.kind === 'cod' || it.kind === 'invoice') btns += '<button class="b b-edit" style="flex:0 0 64px;" onclick="fdOrder(' + (parseInt(it.id, 10) || 0) + ')">🛒</button>';
     else if (it.kind === 'watch' && it.why === 'ready') {
       var sms = fdStockSms(it.id);
       if (sms) btns += '<a class="b b-sms" href="' + sms + '">✉️</a>';
