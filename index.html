@@ -182,7 +182,7 @@
 <script>
 (function () {
   'use strict';
-  var PAGE_VER = '1.53.0';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
+  var PAGE_VER = '1.53.1';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
   var API = 'https://api.github.com';
   var state = null, tab = localStorage.getItem('vp_tab') || 'tasks', cfg = null, editId = null;
   if (['find', 'feed', 'tasks', 'stock', 'orders', 'weights', 'fan', 'check'].indexOf(tab) < 0) tab = 'tasks';
@@ -191,23 +191,24 @@
   var FAN_DEF = { ramburs: 15, zone: 55, surchargeFixed: 0, surchargePercent: 7, baseWeight: 1, extraRate: 6, rounding: 'nearest', surchargeOnExtra: true };
   // v1.53: статусы заказа — ключи и названия из админки (state.ordSt присылает
   // компьютер, он читает их со страницы заказов); пока не пришли — прежние ключи
-  // с новыми названиями. role — что статус значит для нас: по роли, а не по
-  // названию, узнаём и новые, и прежние подписи («В процессе», «Закончен»).
+  // с названиями админки (2026-10-11: finished = «Позвонить позже / Не ответил»,
+  // inproccess = «Доставлен»). role — что статус значит для нас: по роли узнаём и
+  // новые, и прежние подписи («В процессе», «Закончен» до v1.53 — это перезвон).
   // Копия voRole (background.js) / ordRoleOf (editor.html) — менять все три.
   var ORD_ST_DEF = [
     { v: 'checkout', site: 'Оформлен', role: 'new' },
     { v: 'approved', site: 'Подтвержден', role: 'approved' },
     { v: 'delivery', site: 'В доставке', role: 'delivery' },
-    { v: 'inproccess', site: 'Перезвонить позже / Не ответил', role: 'callback' },
-    { v: 'finished', site: 'Доставлен', role: 'delivered' },
+    { v: 'finished', site: 'Позвонить позже / Не ответил', role: 'callback' },
+    { v: 'inproccess', site: 'Доставлен', role: 'delivered' },
     { v: 'cancelled', site: 'Отменен', role: 'cancelled' }
   ];
   function phRole(text) {
     var s = String(text == null ? '' : text).toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
     if (!s) return '';
     if (/отмен|anulat/.test(s)) return 'cancelled';
-    if (/перезвон|не ответил|процесс|nu a r[ăa]spuns|revenim/.test(s)) return 'callback';
-    if (/доставлен|законч|выполнен|livrat/.test(s)) return 'delivered';
+    if (/перезвон|позвонить позже|не ответил|процесс|законч|nu a r[ăa]spuns|revenim/.test(s)) return 'callback';
+    if (/доставлен|выполнен|livrat/.test(s)) return 'delivered';
     if (/доставк|livrare/.test(s)) return 'delivery';
     if (/подтвержд|confirmat/.test(s)) return 'approved';
     if (/оформ|plasat/.test(s)) return 'new';
@@ -486,10 +487,12 @@
     return st || ((oc && oc.miss > 0) ? 'noanswer' : '');
   }
   // Посылка, на которую надо посмотреть: красный/жёлтый флаг FAN, проблема или расхождение наложенного.
-  function ordFanAlarm(dl) { return !!(dl && dl.awb && (dl.sev === 'red' || dl.sev === 'warn' || dl.prob || dl.cod)); }
+  function ordFanAlarm(dl) { return !!(dl && dl.awb && (dl.sev === 'red' || dl.sev === 'warn' || dl.prob || dl.cod || (dl.miss && !dl.st))); }
   // v1.53: точный статус в кабинете FAN — слово FAN, наш перевод, уточнение («Refuz primire»), с какого времени.
   function ordFanBadge(dl) {
-    if (!dl || !dl.awb || !(dl.st || dl.lbl)) return '';
+    if (!dl || !dl.awb) return '';
+    // v1.53.1: код есть, статуса нет — ждём проверку или кода нет в списке кабинета (там поиск / фильтр)
+    if (!(dl.st || dl.lbl)) return dl.miss ? '<span class="badge bg-unk">⚠ FAN: кода нет в списке кабинета — сбрось поиск/фильтр в «AWB-uri»</span>' : '<span class="badge bg-done">⏳ FAN: жду первую проверку</span>';
     var label = String(dl.lbl || FAN_CODE[dl.st] || dl.st), ours = FAN_RU[dl.st] || '';
     var cls = dl.sev === 'red' ? 'bg-out' : (dl.sev === 'warn' ? 'bg-unk' : (dl.sev === 'ok' ? 'bg-in' : 'bg-o-del'));
     var ico = dl.sev === 'red' ? '🚩' : (dl.sev === 'warn' ? '⚠' : (dl.sev === 'ok' ? '✅' : '📦'));
