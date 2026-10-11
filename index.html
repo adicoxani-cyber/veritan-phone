@@ -182,23 +182,53 @@
 <script>
 (function () {
   'use strict';
-  var PAGE_VER = '1.50.0';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
+  var PAGE_VER = '1.53.0';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
   var API = 'https://api.github.com';
   var state = null, tab = localStorage.getItem('vp_tab') || 'tasks', cfg = null, editId = null;
   if (['find', 'feed', 'tasks', 'stock', 'orders', 'weights', 'fan', 'check'].indexOf(tab) < 0) tab = 'tasks';
   var ordFilter = 'all', ordOpen = {}, checkFilter = 'all';
   var fanWeights = [];   // [{label, kg}] rows added on the FAN tab
   var FAN_DEF = { ramburs: 15, zone: 55, surchargeFixed: 0, surchargePercent: 7, baseWeight: 1, extraRate: 6, rounding: 'nearest', surchargeOnExtra: true };
-  // site — как статус зовётся в админке (по нему узнаём пришедшее с сайта),
-  // t — как он подписан у нас. «В процессе» и «Закончен» переиспользованы под
-  // работу с клиентами, поэтому подписи отличаются от родных.
-  var ORD_STATUSES = [
-    { v: 'checkout', site: 'Оформлен', t: 'Оформлен' }, { v: 'cancelled', site: 'Отменен', t: 'Отменен' },
-    { v: 'approved', site: 'Подтвержден', t: 'Подтвержден' },
-    { v: 'finished', site: 'Закончен', t: 'Позвонить позже' },
-    { v: 'delivery', site: 'В доставке', t: 'В доставке' },
-    { v: 'inproccess', site: 'В процессе', t: 'Не ответил' }
+  // v1.53: статусы заказа — ключи и названия из админки (state.ordSt присылает
+  // компьютер, он читает их со страницы заказов); пока не пришли — прежние ключи
+  // с новыми названиями. role — что статус значит для нас: по роли, а не по
+  // названию, узнаём и новые, и прежние подписи («В процессе», «Закончен»).
+  // Копия voRole (background.js) / ordRoleOf (editor.html) — менять все три.
+  var ORD_ST_DEF = [
+    { v: 'checkout', site: 'Оформлен', role: 'new' },
+    { v: 'approved', site: 'Подтвержден', role: 'approved' },
+    { v: 'delivery', site: 'В доставке', role: 'delivery' },
+    { v: 'inproccess', site: 'Перезвонить позже / Не ответил', role: 'callback' },
+    { v: 'finished', site: 'Доставлен', role: 'delivered' },
+    { v: 'cancelled', site: 'Отменен', role: 'cancelled' }
   ];
+  function phRole(text) {
+    var s = String(text == null ? '' : text).toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
+    if (!s) return '';
+    if (/отмен|anulat/.test(s)) return 'cancelled';
+    if (/перезвон|не ответил|процесс|nu a r[ăa]spuns|revenim/.test(s)) return 'callback';
+    if (/доставлен|законч|выполнен|livrat/.test(s)) return 'delivered';
+    if (/доставк|livrare/.test(s)) return 'delivery';
+    if (/подтвержд|confirmat/.test(s)) return 'approved';
+    if (/оформ|plasat/.test(s)) return 'new';
+    return '';
+  }
+  function ordStList() {
+    var l = (state && Array.isArray(state.ordSt) && state.ordSt.length) ? state.ordSt : ORD_ST_DEF;
+    return l.filter(function (s) { return s && s.v; }).map(function (s) {
+      var site = String(s.site || s.v);
+      return { v: String(s.v), site: site, role: s.role || phRole(site), t: site };
+    });
+  }
+  function ordStByValue(v) { return ordStList().filter(function (s) { return s.v === v; })[0] || null; }
+  function ordRoleValue(role) {
+    var hit = ordStList().filter(function (s) { return s.role === role; })[0] || ORD_ST_DEF.filter(function (s) { return s.role === role; })[0];
+    return hit ? hit.v : '';
+  }
+  function ordRoleOfValue(v) { var s = ordStByValue(v); return s ? s.role : ''; }
+  // Точный статус посылки в кабинете FAN (слово FAN + наш перевод) — копия FO_STATUS_TEXT.
+  var FAN_CODE = { neridicat: 'Neridicat', initial: 'Inițial', in_curs: 'În curs', exceptie: 'Excepție', livrat: 'Livrat', returnat: 'Returnat', anulat: 'Anulat', avizat: 'Avizat' };
+  var FAN_RU = { neridicat: 'ожидает отправки', initial: 'оформлен', in_curs: 'в пути', exceptie: 'задержка при доставке', livrat: 'доставлен', returnat: 'возвращён', anulat: 'отменён', avizat: 'готов к выдаче' };
 
   function loadCfg() {
     try {
@@ -445,44 +475,68 @@
 
   /* ── ORDERS ── */
   function ordPendStatus() { var p = {}; opsQueue().forEach(function (o) { if (o.op === 'orderStatus' && o.id) p[o.id] = o.status; }); return p; }
-  function statusText(v) { for (var i = 0; i < ORD_STATUSES.length; i++) if (ORD_STATUSES[i].v === v) return ORD_STATUSES[i].t; return v; }
+  function statusText(v) { var s = ordStByValue(v); return s ? s.t : v; }
+  var ROLE_CLS = { new: 'bg-o-new', approved: 'bg-o-appr', delivery: 'bg-o-del', delivered: 'bg-in', cancelled: 'bg-o-cancel' };
+  // Что было по звонку у заказа в «Перезвонить позже / Не ответил» (на сайте это один статус).
+  // Прежние записи: 'inproccess' — недозвон, 'finished' — «позвонить позже».
+  function ordCbSt(oc) {
+    var st = oc && oc.st;
+    if (st === 'inproccess') return 'noanswer';
+    if (st === 'finished') return 'later';
+    return st || ((oc && oc.miss > 0) ? 'noanswer' : '');
+  }
+  // Посылка, на которую надо посмотреть: красный/жёлтый флаг FAN, проблема или расхождение наложенного.
+  function ordFanAlarm(dl) { return !!(dl && dl.awb && (dl.sev === 'red' || dl.sev === 'warn' || dl.prob || dl.cod)); }
+  // v1.53: точный статус в кабинете FAN — слово FAN, наш перевод, уточнение («Refuz primire»), с какого времени.
+  function ordFanBadge(dl) {
+    if (!dl || !dl.awb || !(dl.st || dl.lbl)) return '';
+    var label = String(dl.lbl || FAN_CODE[dl.st] || dl.st), ours = FAN_RU[dl.st] || '';
+    var cls = dl.sev === 'red' ? 'bg-out' : (dl.sev === 'warn' ? 'bg-unk' : (dl.sev === 'ok' ? 'bg-in' : 'bg-o-del'));
+    var ico = dl.sev === 'red' ? '🚩' : (dl.sev === 'warn' ? '⚠' : (dl.sev === 'ok' ? '✅' : '📦'));
+    return '<span class="badge ' + cls + '">' + ico + ' FAN: ' + esc(label) + (ours && ours.toLowerCase() !== label.toLowerCase() ? ' — ' + esc(ours) : '')
+      + (dl.rsn ? ' · ' + esc(dl.rsn) : '') + (dl.at ? ' · с ' + esc(fdWhen(dl.at)) : '') + '</span>';
+  }
   function renderOrders(box) {
     var list = (state && state.orders) || [];
     var pend = ordPendStatus();
-    var chips = '<div>' +
-      '<button class="chip' + (ordFilter === 'all' ? ' on' : '') + '" onclick="ordFilterSet(\'all\')">Все</button>' +
-      '<button class="chip' + (ordFilter === 'new' ? ' on' : '') + '" onclick="ordFilterSet(\'new\')">Оформленные</button>' +
-      '</div>';
-    var shown = list.filter(function (o) { return ordFilter === 'all' || /оформ/i.test(o.status || ''); });
-    if (!shown.length) { box.innerHTML = chips + '<div class="empty">Заказов нет<br><span style="font-size:11px;">(компьютер должен быть залогинен в админку)</span></div>'; return; }
+    var dAll = (state && state.deliv) || {};
+    var fanN = list.filter(function (o) { return ordFanAlarm(dAll[o.id]); }).length;
+    var chip = function (f, t) { return '<button class="chip' + (ordFilter === f ? ' on' : '') + '" onclick="ordFilterSet(\'' + f + '\')">' + t + '</button>'; };
+    var chips = '<div>' + chip('all', 'Все') + chip('new', 'Оформленные') + chip('cb', 'Перезвонить')
+      + ((fanN || ordFilter === 'fan') ? chip('fan', '🚩 Посылки FAN (' + fanN + ')') : '') + '</div>';
+    var shown = list.filter(function (o) {
+      if (ordFilter === 'fan') return ordFanAlarm(dAll[o.id]);
+      if (ordFilter === 'new') return phRole(o.status) === 'new';
+      if (ordFilter === 'cb') return phRole(o.status) === 'callback';
+      return true;
+    });
+    if (ordFilter === 'fan') shown.sort(function (a, b) { return (dAll[b.id].sev === 'red' ? 1 : 0) - (dAll[a.id].sev === 'red' ? 1 : 0); });
+    if (!shown.length) { box.innerHTML = chips + (ordFilter === 'fan' ? '<div class="empty">✅ С посылками FAN всё спокойно</div>' : '<div class="empty">Заказов нет<br><span style="font-size:11px;">(компьютер должен быть залогинен в админку)</span></div>'); return; }
     var details = (state && state.orderDetails) || {};
     box.innerHTML = chips + shown.map(function (o) {
       var meta = [];
       if (o.phone) meta.push('📞 <a href="' + telHref(o.phone) + '">' + esc(o.phone) + '</a>');
       if (o.price) meta.push('💰 ' + esc(o.price) + ' лей');
       if (o.date) meta.push(esc(o.date));
-      // Подпись — НАША («Не ответил», «Позвонить позже»), а не имя из админки.
-      var siteSt = ORD_STATUSES.filter(function (s) { return String(o.status || '').toLowerCase().indexOf(s.site.toLowerCase()) === 0; })[0];
-      var stTxt = pend[o.id] ? (statusText(pend[o.id]) + ' · отправляется…') : (siteSt ? siteSt.t : (o.status || ''));
-      var oc = fdOrderCb(o.id), now0 = Date.now();
+      // Роль статуса — по названию из админки (и новые, и прежние подписи).
+      var role = pend[o.id] ? ordRoleOfValue(pend[o.id]) : phRole(o.status);
+      var oc = fdOrderCb(o.id), now0 = Date.now(), cbSt = ordCbSt(oc);
+      // У «Перезвонить позже / Не ответил» показываем, что было на самом деле.
+      var stTxt = pend[o.id] ? (statusText(pend[o.id]) + ' · отправляется…')
+        : (role === 'callback' && cbSt === 'noanswer') ? ('📵 Не ответил' + (oc.miss ? ' ×' + oc.miss : ''))
+        : (role === 'callback' && cbSt === 'later') ? '⏰ Перезвонить позже'
+        : (o.status || '');
       var cbBadge = (oc.at ? '<span class="badge ' + (oc.at <= now0 ? 'bg-out' : 'bg-o-later') + '">⏰ ' + esc(fdWhen(oc.at, now0)) + '</span>' : '')
-        + (oc.miss >= 2 ? '<span class="badge bg-o-noans">📵 ×' + oc.miss + '</span>' : '');
-      var dl = ((state && state.deliv) || {})[o.id];
+        + (oc.miss >= 2 && role !== 'callback' ? '<span class="badge bg-o-noans">📵 ×' + oc.miss + '</span>' : '');
+      var dl = dAll[o.id];
       if (dl && dl.awb) meta.push('📦 ' + esc(dl.awb) + (dl.auto ? ' 🔗' : ''));
+      cbBadge += ordFanBadge(dl);
       // v1.50: проблема с посылкой / расхождение наложенного (считает компьютер), причина отмены.
       if (dl && dl.prob) cbBadge += '<span class="badge bg-out">🚚 ' + esc(dl.prob) + '</span>';
       if (dl && dl.cod) cbBadge += '<span class="badge bg-out">💰 ' + esc(dl.cod) + '</span>';
       var crTxt = ((state && state.cr) || {})[o.id];
       if (crTxt) meta.push('✖ ' + esc(crTxt));
-      // Сначала родные имена из админки, затем наши подписи — статус может
-      // прийти и со страницы, и из кеша после смены через расширение.
-      var stCls = /отмен/i.test(stTxt) ? 'bg-o-cancel'
-        : /оформ/i.test(stTxt) ? 'bg-o-new'
-        : /процесс|не ответил/i.test(stTxt) ? 'bg-o-noans'
-        : /подтвержд/i.test(stTxt) ? 'bg-o-appr'
-        : /доставк/i.test(stTxt) ? 'bg-o-del'
-        : /законч|позвонить позже/i.test(stTxt) ? 'bg-o-later'
-        : 'bg-done';
+      var stCls = role === 'callback' ? (cbSt === 'later' ? 'bg-o-later' : 'bg-o-noans') : (ROLE_CLS[role] || 'bg-done');
       var stBadge = '<span class="badge ' + stCls + '">' + esc(stTxt) + '</span>';
       var open = !!ordOpen[o.id];
       var detHtml = '';
@@ -499,22 +553,37 @@
         } else {
           detHtml += '<div class="meta" style="padding:8px 0;">Состав ещё не загружен с компьютера — появится после ближайшей синхронизации.</div>';
         }
+        if (dl && dl.awb && (dl.sev === 'red' || dl.sev === 'warn')) {
+          detHtml += '<div class="meta" style="padding:8px 10px;margin:8px 0;border-radius:10px;background:' + (dl.sev === 'red' ? '#fdecec;color:#a11' : '#fff4e0;color:#8a5200') + ';">'
+            + (dl.sev === 'red' ? '🚩 Красный флаг FAN — позвони клиенту, пока посылку не вернули.' : '⚠ FAN сообщает о сложности с доставкой — проверь.')
+            + (o.phone ? ' <a href="' + telHref(o.phone) + '">📞 ' + esc(o.phone) + '</a>' : '') + '</div>';
+        }
+        // Выбранный — по РОДНОМУ имени из админки (оно приходит в o.status), иначе по роли.
+        var stl = ordStList(), cur0 = String(o.status || '').toLowerCase().trim(), role0 = phRole(o.status);
+        var selV = (stl.filter(function (s) { return s.site.toLowerCase() === cur0; })[0] || stl.filter(function (s) { return role0 && s.role === role0; })[0] || {}).v;
+        var selSt = 'width:100%;margin-top:8px;font-family:inherit;font-size:14px;padding:10px;border-radius:10px;';
         detHtml += '<label style="display:block;font-size:11px;font-weight:800;color:#777;margin:10px 0 4px;">Статус заказа</label>' +
           '<select id="ost-' + o.id + '" onchange="ordStSel(' + o.id + ')" style="width:100%;font-family:inherit;font-size:14px;padding:10px;border:1px solid #ddd;border-radius:10px;background:#fafaf8;">' +
-          ORD_STATUSES.map(function (s) {
-            // Отмечаем выбранным по РОДНОМУ имени из админки — именно оно
-            // приходит в o.status; нашу подпись тоже принимаем на всякий случай.
-            var cur = (o.status || '').toLowerCase();
-            var on = cur.indexOf(String(s.site || '').toLowerCase()) === 0 || cur.indexOf(String(s.t).toLowerCase()) === 0;
-            return '<option value="' + s.v + '"' + (on ? ' selected' : '') + '>' + s.t + '</option>';
-          }).join('') +
+          stl.map(function (s) { return '<option value="' + esc(s.v) + '"' + (s.v === selV ? ' selected' : '') + '>' + esc(s.t) + '</option>'; }).join('') +
           '</select>' +
           // Отмена — с причиной (v1.50), для «Недели в цифрах». Тот же список, что в панели.
-          '<select id="ocr-' + o.id + '" style="display:none;width:100%;margin-top:8px;font-family:inherit;font-size:14px;padding:10px;border:1px solid #f0c4be;border-radius:10px;background:#fff6f5;">' +
+          '<select id="ocr-' + o.id + '" style="display:none;' + selSt + 'border:1px solid #f0c4be;background:#fff6f5;">' +
           '<option value="">— почему отменили? —</option>' + CR_REASONS.map(function (r) { return '<option value="' + r.k + '">' + esc(r.t) + '</option>'; }).join('') +
           '</select>' +
+          // v1.53: «Перезвонить позже / Не ответил» — что именно было (для напоминаний и статистики).
+          '<select id="ocbo-' + o.id + '" onchange="ordStSel(' + o.id + ')" style="display:none;' + selSt + 'border:1px solid #f3c9a8;background:#fff8f2;">' +
+          '<option value="">— что было? —</option><option value="noanswer">📵 Не ответил — набрать снова через час</option><option value="later">⏰ Перезвонить позже — клиент попросил</option>' +
+          '</select>' +
+          '<select id="ocbt-' + o.id + '" style="display:none;' + selSt + 'border:1px solid #d8ccff;background:#f7f4ff;">' +
+          ['1h', '2h', '17', 'tom10'].map(function (p) { return '<option value="' + p + '"' + (p === '2h' ? ' selected' : '') + '>⏰ ' + esc(p === '2h' ? '+2 ч' : fdPresetLabel(p)) + '</option>'; }).join('') +
+          '</select>' +
           '<button class="ghost" onclick="ordApplyStatus(' + o.id + ')" style="margin-top:8px;">Сменить статус</button>';
-        if (/оформ|процесс|законч/i.test(o.status || '')) {
+        if (role0 === 'callback' && !cbSt && !pend[o.id]) {
+          detHtml += '<label style="display:block;font-size:11px;font-weight:800;color:#777;margin:12px 0 4px;">📞 Что было по звонку?</label><div class="cbchips">'
+            + '<button class="chip" onclick="ordCbOut(' + o.id + ',\'noanswer\')">📵 Не ответил</button>'
+            + '<button class="chip" onclick="ordCbOut(' + o.id + ',\'later\')">⏰ Перезвонить позже</button></div>';
+        }
+        if (role0 === 'new' || role0 === 'callback') {
           detHtml += '<label style="display:block;font-size:11px;font-weight:800;color:#777;margin:12px 0 4px;">⏰ Перезвонить (напомнит компьютер)</label><div class="cbchips">'
             + ['1h', '17', 'tom10'].map(function (p) { return '<button class="chip" onclick="ordCb(' + o.id + ',\'' + p + '\')">' + esc(fdPresetLabel(p)) + '</button>'; }).join('')
             + (oc.at ? '<button class="chip" onclick="ordCb(' + o.id + ',\'off\')">✕</button>' : '') + '</div>';
@@ -532,34 +601,68 @@
     { k: 'changed', t: 'Передумал' }, { k: 'noreach', t: 'Не дозвонились' }, { k: 'dup', t: 'Дубль заказа' }, { k: 'other', t: 'Другое' }
   ];
   window.ordStSel = function (id) {
-    var sel = document.getElementById('ost-' + id), cr = document.getElementById('ocr-' + id);
-    if (cr) cr.style.display = (sel && sel.value === 'cancelled') ? '' : 'none';
+    var sel = document.getElementById('ost-' + id), role = sel ? ordRoleOfValue(sel.value) : '';
+    var cr = document.getElementById('ocr-' + id), cbo = document.getElementById('ocbo-' + id), cbt = document.getElementById('ocbt-' + id);
+    if (cr) cr.style.display = role === 'cancelled' ? '' : 'none';
+    if (cbo) cbo.style.display = role === 'callback' ? '' : 'none';
+    if (cbt) cbt.style.display = (role === 'callback' && cbo && cbo.value === 'later') ? '' : 'none';
   };
+  function ordFind(id) { return ((state && state.orders) || []).find(function (x) { return x && x.id === id; }) || {}; }
+  // Команда перезвона по заказу. out — что было по звонку (журнал «Недели в цифрах»;
+  // '' — просто сдвинули время, в журнал не пишем). 3-й недозвон подряд: компьютер
+  // отменит заказ с причиной «Не дозвонились» (правило то же, что в панели).
+  function ordCbPush(id, o, out, at, miss) {
+    opPush({ op: 'callback', kind: 'order', id: id, at: at, miss: miss, st: out, out: out, name: o.name || '', phone: o.phone || '' });
+  }
   window.ordApplyStatus = function (id) {
     var sel = document.getElementById('ost-' + id);
     if (!sel || !sel.value) return;
-    var crSel = document.getElementById('ocr-' + id), reason = (crSel && sel.value === 'cancelled') ? crSel.value : '';
-    if (sel.value === 'cancelled' && !reason) { if (crSel) crSel.style.display = ''; toast('✖ Выбери, почему отменили'); return; }
-    if (!confirm('Сменить статус заказа #' + id + ' на «' + statusText(sel.value) + '»?')) return;
+    var role = ordRoleOfValue(sel.value);
+    var crSel = document.getElementById('ocr-' + id), reason = (crSel && role === 'cancelled') ? crSel.value : '';
+    if (role === 'cancelled' && !reason) { if (crSel) crSel.style.display = ''; toast('✖ Выбери, почему отменили'); return; }
+    var cboSel = document.getElementById('ocbo-' + id), out = (cboSel && role === 'callback') ? cboSel.value : '';
+    if (role === 'callback' && !out) { if (cboSel) cboSel.style.display = ''; toast('📞 Выбери, что было: не ответил или просил перезвонить'); return; }
+    var o = ordFind(id), c = fdOrderCb(id);
+    var miss = out === 'noanswer' ? (c.miss || 0) + 1 : 0, third = out === 'noanswer' && miss >= 3;
+    var cbtSel = document.getElementById('ocbt-' + id);
+    var at = out === 'noanswer' ? (third ? 0 : fdPresetAt('1h')) : (out === 'later' ? fdPresetAt((cbtSel && cbtSel.value) || '2h') : 0);
+    var what = out === 'noanswer' ? ' (не ответил' + (miss > 1 ? ', ' + miss + '-й раз подряд' : '') + ')' : (out === 'later' ? ' (перезвонить ' + fdWhen(at) + ')' : '');
+    if (!confirm('Сменить статус заказа #' + id + ' на «' + statusText(sel.value) + '»' + what + '?'
+      + (third ? '\n\nЭто 3-й недозвон подряд — компьютер отменит заказ (причина «Не дозвонились»).' : ''))) return;
     var op = { op: 'orderStatus', id: id, status: sel.value };
     if (reason) op.reason = reason;
     opPush(op);
     // Перезвон — как на компьютере: «Не ответил» — счётчик подряд +1 и через час;
-    // «Позвонить позже» — через 2 ч; любой другой — напоминание больше не нужно.
-    var o = ((state && state.orders) || []).find(function (x) { return x && x.id === id; }) || {};
-    var c = fdOrderCb(id);
-    if (sel.value === 'inproccess') opPush({ op: 'callback', kind: 'order', id: id, at: fdPresetAt('1h'), miss: (c.miss || 0) + 1, st: 'inproccess', name: o.name || '', phone: o.phone || '' });
-    else if (sel.value === 'finished') opPush({ op: 'callback', kind: 'order', id: id, at: (c.at > Date.now()) ? c.at : fdPresetAt('2h'), miss: 0, st: 'finished', name: o.name || '', phone: o.phone || '' });
+    // «Перезвонить позже» — в выбранное время; любой другой — напоминание больше не нужно.
+    if (out) ordCbPush(id, o, out, at, miss);
     else if (c.at || c.miss) opPush({ op: 'callback', kind: 'order', id: id, at: 0, miss: 0 });
     render();
-    toast('🛒 Отправлено — компьютер применит в течение минуты');
+    toast(third ? '📵 3-й недозвон — компьютер отменит заказ в течение минуты' : '🛒 Отправлено — компьютер применит в течение минуты');
   };
-  // Время перезвона по заказу (без смены статуса).
+  // Статус уже «Перезвонить позже / Не ответил» (поставили в админке) — отмечаем, что было.
+  window.ordCbOut = function (id, out) {
+    var o = ordFind(id), c = fdOrderCb(id);
+    if (out === 'noanswer') {
+      var miss = (c.miss || 0) + 1, third = miss >= 3;
+      if (third && !confirm('Заказ #' + id + ': это 3-й недозвон подряд — компьютер отменит заказ (причина «Не дозвонились»). Продолжить?')) return;
+      ordCbPush(id, o, 'noanswer', third ? 0 : fdPresetAt('1h'), miss);
+      render();
+      toast(third ? '📵 3-й недозвон — заказ будет отменён' : '📵 Не ответил — напомню набрать через час');
+      return;
+    }
+    var at = fdPresetAt('2h');
+    ordCbPush(id, o, 'later', at, 0);
+    render();
+    toast('⏰ Перезвонить ' + fdWhen(at) + ' — время можно поменять кнопками ниже');
+  };
+  // Время перезвона по заказу (без смены статуса). Исход звонка не меняем.
   window.ordCb = function (id, preset) {
-    var o = ((state && state.orders) || []).find(function (x) { return x && x.id === id; }) || {};
-    var c = fdOrderCb(id);
+    var o = ordFind(id), c = fdOrderCb(id);
     var at = preset === 'off' ? 0 : fdPresetAt(preset);
-    opPush({ op: 'callback', kind: 'order', id: id, at: at, miss: c.miss || 0, st: /процесс/i.test(o.status || '') ? 'inproccess' : 'finished', name: o.name || '', phone: o.phone || '' });
+    var st = ordCbSt(c) || (phRole(o.status) === 'callback' ? 'later' : '');
+    var op = { op: 'callback', kind: 'order', id: id, at: at, miss: c.miss || 0, out: '', name: o.name || '', phone: o.phone || '' };
+    if (st) op.st = st;
+    opPush(op);
     render();
     toast(at ? ('⏰ Перезвонить ' + fdWhen(at)) : '⏰ Напоминание снято');
   };
@@ -644,7 +747,11 @@
       .replace(/\s*\(\s*\)/g, '').replace(/[ \t]{2,}/g, ' ').replace(/ +([.,!?])/g, '$1').trim();
   }
   function fdLg() { return fdLang === 'ro' || fdLang === 'ru' ? fdLang : ((state && state.smsLang) || 'ru'); }
-  function fdOrderCb(id) { var c = ((state && state.ocb) || {})[id] || {}; var p = fdPendCb('order', id); return p || c; }
+  function fdOrderCb(id) {
+    var c = ((state && state.ocb) || {})[id] || {}, p = fdPendCb('order', id);
+    if (p && !p.st) p.st = c.st || '';   // команда без исхода — исход прежний
+    return p || c;
+  }
   // Команды в очереди телефона — поверх снимка, пока компьютер их не применил.
   function fdPend() {
     var p = {};
@@ -655,7 +762,7 @@
   }
   function fdPendCb(kind, id) {
     var r = null;
-    opsQueue().forEach(function (o) { if (o.op === 'callback' && o.kind === kind && String(o.id) === String(id)) r = { at: o.at || 0, miss: o.miss || 0, busy: 1 }; });
+    opsQueue().forEach(function (o) { if (o.op === 'callback' && o.kind === kind && String(o.id) === String(id)) r = { at: o.at || 0, miss: o.miss || 0, st: o.st || '', busy: 1 }; });
     return r;
   }
   function fdRows() {
@@ -682,6 +789,7 @@
     });
     items = items.filter(function (it) { return !it.at || it.at <= fdEnd(now); });
     var rank = function (it) {
+      if (it.kind === 'parcel' && it.sev === 'red' && it.why !== 'ret') return 0;   // красный флаг FAN (отказ, утеря) — наверх
       if (it.at && it.at <= now) return 0;
       if (it.at) return 5;
       if (it.kind === 'feed' && it.why === 'none') return 1;
@@ -699,9 +807,10 @@
     el.innerHTML = n ? '<span class="tcount">' + n + '</span>' : '';
   }
   // Посылки FAN — те же тексты, что FO_PROB_TEXT в background.js.
-  var FD_PROB = { delay: 'задержка при доставке', ret: 'посылка вернулась', wait: 'ждёт в отделении', slow: 'долго в пути', pickup: 'FAN не забрал посылку' };
+  var FD_PROB = { delay: 'задержка при доставке', ret: 'посылка вернулась', wait: 'ждёт в отделении', slow: 'долго в пути', pickup: 'FAN не забрал посылку',
+    refuse: 'клиент отказался от посылки', issue: 'проблема при доставке', lost: 'посылка повреждена или утеряна', fancancel: 'отправка отменена в FAN' };
   function fdWhy(it, now) {
-    if (it.kind === 'parcel') return '🚚 <b>' + esc(FD_PROB[it.why] || it.why) + ((it.why === 'wait' || it.why === 'slow' || it.why === 'pickup') ? ' — ' + (it.days || 0) + ' дн.' : '') + '</b>' + (it.awb ? ' · ' + esc(it.awb) : '');
+    if (it.kind === 'parcel') return ((it.sev === 'red' && it.why !== 'ret') ? '🚩 <b class="due">' : '🚚 <b>') + esc(FD_PROB[it.why] || it.why) + ((it.why === 'wait' || it.why === 'slow' || it.why === 'pickup') ? ' — ' + (it.days || 0) + ' дн.' : '') + (it.rsn ? ' («' + esc(it.rsn) + '»)' : '') + '</b>' + (it.awb ? ' · ' + esc(it.awb) : '');
     if (it.kind === 'cod') return '💰 ' + esc(it.text || 'проверь наложенный платёж');
     if (it.at) {
       var due = it.at <= now;
