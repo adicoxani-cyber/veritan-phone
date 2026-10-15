@@ -811,7 +811,7 @@
   }
   // Посылки FAN — те же тексты, что FO_PROB_TEXT в background.js.
   var FD_PROB = { delay: 'задержка при доставке', ret: 'посылка вернулась', wait: 'ждёт в отделении', slow: 'долго в пути', pickup: 'FAN не забрал посылку',
-    refuse: 'клиент отказался от посылки', issue: 'проблема при доставке', lost: 'посылка повреждена или утеряна', fancancel: 'отправка отменена в FAN' };
+    refuse: 'клиент отказался от посылки', issue: 'проблема при доставке', lost: 'посылка повреждена или утеряна', fancancel: 'отправка отменена в FAN', retgo: 'FAN возвращает посылку' };
   function fdWhy(it, now) {
     if (it.kind === 'parcel') return ((it.sev === 'red' && it.why !== 'ret') ? '🚩 <b class="due">' : '🚚 <b>') + esc(FD_PROB[it.why] || it.why) + ((it.why === 'wait' || it.why === 'slow' || it.why === 'pickup') ? ' — ' + (it.days || 0) + ' дн.' : '') + (it.rsn ? ' («' + esc(it.rsn) + '»)' : '') + '</b>' + (it.awb ? ' · ' + esc(it.awb) : '');
     if (it.kind === 'cod') return '💰 ' + esc(it.text || 'проверь наложенный платёж');
