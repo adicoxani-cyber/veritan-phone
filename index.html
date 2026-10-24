@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Veritan">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#1a1a1a">
+<meta name="theme-color" content="#081538">
 <!-- ?v= — номер картинки: iPhone долго держит иконку в кэше; сменили иконку — увеличь номер (и в manifest) -->
 <link rel="manifest" href="manifest.webmanifest?v=2">
 <!-- v1.62.3: иконка ВСТРОЕНА (data:) — окно «На экран Домой» в iOS 26 грузит её своим загрузчиком и по сети часто не дожидается (рисует букву «V»). Это phone-icon-180.png в base64: сменили иконку — пересобрать строку. -->
@@ -152,22 +152,121 @@
     .tiles { grid-template-columns: repeat(4, 1fr); }
   }
   @media (max-width: 350px) { .bnav button .tx { font-size: 9.5px; } .tiles { grid-template-columns: repeat(2, 1fr); } }
+
+  /* ── v1.63: оформление в духе «Госуслуг» — синий градиент сверху, стеклянные карточки,
+     яркие плитки, белый лист с контентом, нижнее меню с круглой кнопкой-логотипом ── */
+  :root { --ink: #0f1b3d; --acc: #2462f5; --pri: #2462f5; --line: #e2e7f1; --bg: #eef2f9; --muted: #7c86a2; }
+  body { background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif; }
+  .hero { position: relative; color: #fff; padding-bottom: 38px;
+    background: radial-gradient(130% 70% at 100% 0%, rgba(84,132,255,.55) 0%, rgba(84,132,255,0) 62%),
+                radial-gradient(90% 55% at 0% 100%, rgba(122,92,255,.35) 0%, rgba(122,92,255,0) 70%),
+                linear-gradient(180deg, #081538 0%, #0f2766 48%, #1c48b6 100%); }
+  body.home .hero { padding-bottom: 46px; }
+  .top { position: relative; top: auto; z-index: 2; background: transparent; padding: calc(env(safe-area-inset-top, 0px) + 10px) 12px 6px 14px; max-width: 720px; margin: 0 auto; }
+  .top .who { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; background: none; border: none; color: #fff; padding: 0; height: auto; border-radius: 0; font-family: inherit; text-align: left; }
+  .top .who .av { width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.24); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .top .who .av svg { width: 22px; height: 22px; }
+  .top .who .wtx { display: flex; flex-direction: column; min-width: 0; }
+  .top .who .wn { font-size: 17px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 4px; }
+  .top .who .chev { width: 18px; height: 18px; opacity: .75; flex-shrink: 0; }
+  .age { color: rgba(255,255,255,.62); }
+  .ticons { display: flex; gap: 2px; flex-shrink: 0; }
+  .ticons button { position: relative; width: 42px; height: 42px; min-width: 42px; padding: 0; border-radius: 50%; background: transparent; display: flex; align-items: center; justify-content: center; color: #fff; }
+  .ticons button svg { width: 25px; height: 25px; }
+  .ticons button:active { background: rgba(255,255,255,.14); }
+  .bdot { position: absolute; top: 3px; right: 2px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: #ff3b5c; color: #fff; font-size: 11px; font-weight: 800; line-height: 18px; font-style: normal; box-shadow: 0 0 0 2px #0f2766; display: none; }
+  .spin svg { animation: vspin .9s linear infinite; }
+  @keyframes vspin { to { transform: rotate(360deg); } }
+  #heroBody { max-width: 720px; margin: 0 auto; }
+  .htitle { display: flex; align-items: center; gap: 12px; padding: 12px 18px 0; font-size: 27px; font-weight: 800; letter-spacing: -.01em; }
+  .htitle .hti { width: 40px; height: 40px; border-radius: 13px; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .htitle .hti svg { width: 22px; height: 22px; }
+  .hbrand { display: flex; align-items: center; gap: 12px; padding: 14px 18px 0; font-size: 24px; }
+  .hbrand svg { width: 50px; height: 50px; }
+  .hbrand b { font-weight: 800; }
+  .qchips { display: flex; gap: 8px; overflow-x: auto; padding: 10px 14px 2px; scrollbar-width: none; }
+  .qchips::-webkit-scrollbar { display: none; }
+  .gpill { flex-shrink: 0; border: 1px solid rgba(255,255,255,.24); background: rgba(255,255,255,.12); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); color: #fff; font-family: inherit; font-size: 14.5px; font-weight: 500; padding: 10px 16px; border-radius: 9999px; white-space: nowrap; }
+  .htiles { display: flex; gap: 10px; overflow-x: auto; padding: 14px 14px 8px; scroll-snap-type: x mandatory; scrollbar-width: none; }
+  .htiles::-webkit-scrollbar { display: none; }
+  .htile { position: relative; flex: 0 0 118px; height: 128px; border-radius: 22px; border: 1.5px solid rgba(255,255,255,.4); box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 10px 20px rgba(4,16,60,.35); color: #fff; font-family: inherit; text-align: left; padding: 0; scroll-snap-align: start; overflow: hidden; }
+  .htile::after { content: ''; position: absolute; inset: 0; background: radial-gradient(80% 60% at 85% 10%, rgba(255,255,255,.35), rgba(255,255,255,0) 60%); pointer-events: none; }
+  .htile .he { position: absolute; right: 8px; top: 9px; font-size: 46px; line-height: 1; filter: drop-shadow(0 5px 6px rgba(0,0,0,.28)); z-index: 1; }
+  .htile .hl { position: absolute; left: 12px; bottom: 11px; right: 8px; font-size: 15px; font-weight: 700; line-height: 1.2; text-shadow: 0 1px 3px rgba(0,0,0,.3); z-index: 1; }
+  .htile .hn { position: absolute; left: 10px; top: 10px; min-width: 24px; height: 24px; padding: 0 7px; border-radius: 12px; background: #fff; color: #e5304f; font-size: 13px; font-weight: 800; line-height: 24px; text-align: center; z-index: 1; box-shadow: 0 2px 6px rgba(0,0,0,.2); }
+  .gcards { padding: 8px 14px 0; display: grid; gap: 10px; }
+  .gcard { display: block; width: 100%; text-align: left; font-family: inherit; color: #fff; border-radius: 22px; padding: 17px 18px; background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.17); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+  .gcard .gt { font-size: 19px; font-weight: 700; line-height: 1.25; }
+  .gcard .gs { font-size: 14.5px; color: rgba(255,255,255,.78); margin-top: 5px; line-height: 1.35; }
+  .gcard.alert { background: rgba(255,72,104,.2); border-color: rgba(255,150,170,.38); }
+  #verBan { margin: 12px 14px 0; border-radius: 16px; background: rgba(255,255,255,.16) !important; color: #fff !important; border: 1px solid rgba(255,255,255,.25); }
+  .wrap { position: relative; z-index: 1; margin: -26px auto 0; background: var(--bg); border-radius: 28px 28px 0 0; padding: 20px 14px 0; min-height: 55vh; }
+  body.home .wrap { background: #fff; }
+  .shh { font-size: 21px; font-weight: 800; color: var(--ink); margin: 4px 4px 14px; letter-spacing: -.01em; }
+  .qa { display: flex; gap: 10px; overflow-x: auto; padding: 0 2px 8px; margin-bottom: 8px; scrollbar-width: none; }
+  .qa::-webkit-scrollbar { display: none; }
+  .qa button { flex: 0 0 78px; background: none; border: none; font-family: inherit; display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--ink); font-size: 12.5px; font-weight: 500; text-align: center; line-height: 1.25; padding: 0; }
+  .qa .qi { width: 66px; height: 66px; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 32px; box-shadow: 0 6px 14px rgba(20,40,110,.18), inset 0 1px 0 rgba(255,255,255,.4); }
+  .card { border: none; border-radius: 18px; box-shadow: 0 1px 2px rgba(16,36,94,.05), 0 4px 14px rgba(16,36,94,.06); }
+  .tline { border: none; border-left: 4px solid #7048e8; border-radius: 16px; box-shadow: 0 1px 2px rgba(16,36,94,.05), 0 4px 12px rgba(16,36,94,.06); padding: 11px 12px; }
+  .tline.k-feed { border-left-color: #ff9500; } .tline.k-watch { border-left-color: #22b45e; } .tline.k-task { border-left-color: #9aa3b8; }
+  .tline button { background: #eef2fb; color: #233a74; }
+  body.home .tline, body.home .card { box-shadow: none; border-top: 1px solid #edf0f6; border-right: 1px solid #edf0f6; border-bottom: 1px solid #edf0f6; }
+  .chip { border-color: var(--line); color: #3d4a6b; font-weight: 700; }
+  .chip.on { background: var(--pri); border-color: var(--pri); color: #fff; }
+  .save { background: linear-gradient(180deg, #3374ff, #1f52e0); color: #fff; border-radius: 15px; box-shadow: 0 6px 16px rgba(36,98,245,.28); }
+  .ghost { background: #eef2fb; color: #233a74; border-radius: 15px; }
+  .b { border-radius: 13px; }
+  .b-edit { background: #eef2fb; color: #233a74; }
+  .b-sms { background: #eef2fb; color: #1f52e0; }
+  .stbtn { border-color: var(--line); border-radius: 13px; }
+  .stbtn.on { background: var(--pri); border-color: var(--pri); color: #fff; }
+  .fab { background: linear-gradient(180deg, #3374ff, #1f52e0); color: #fff; box-shadow: 0 10px 24px rgba(36,98,245,.42); }
+  .toast { background: #0f1b3d; }
+  .sec { color: #8a93ad; }
+  .search, .sheet input, .sheet textarea, .sheet select, .inp, textarea.codes { border-color: var(--line); border-radius: 14px; }
+  .chk input { accent-color: var(--pri); }
+  .sheet { border-radius: 24px 24px 0 0; }
+  .tiles .tile { color: #fff; border-radius: 20px; min-height: 96px; font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,.25); box-shadow: 0 6px 14px rgba(20,40,110,.18); }
+  .tiles .tile .ic { font-size: 32px; filter: drop-shadow(0 3px 4px rgba(0,0,0,.25)); }
+  .tiles .tile.on { outline: 3px solid var(--pri); outline-offset: 2px; }
+  .bnav { background: #fff; border-top: none; box-shadow: 0 -6px 24px rgba(16,36,94,.08); padding: 0 4px calc(var(--safe-b) + 2px); overflow: visible; }
+  .bnav button { color: #8a93ad; font-size: 11px; font-weight: 600; gap: 4px; }
+  .bnav button .ic svg { width: 25px; height: 25px; }
+  .bnav button.on { color: var(--pri); }
+  .bnav button.on::before { display: none; }
+  .bnav button.home { flex: 0 0 76px; justify-content: flex-start; }
+  .bnav .hb { width: 62px; height: 62px; margin-top: -24px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 18px rgba(16,36,94,.22), 0 0 0 5px #fff; }
+  .bnav .hb svg { width: 44px; height: 44px; }
+  .bnav button.home.on .hb { box-shadow: 0 8px 22px rgba(36,98,245,.4), 0 0 0 5px #fff, 0 0 0 7.5px rgba(36,98,245,.6); }
+  .bnav .home .tx { margin-top: 2px; }
+  .nb { background: #ff3b5c; box-shadow: 0 0 0 2px #fff; }
+  .nb.f { background: #ff9500; }
+  .htiles, .qchips, .qa { scroll-padding-left: 14px; }
+  .gate .ghost { background: #fff; box-shadow: 0 2px 8px rgba(16,36,94,.08); }
+  .gate h2 { color: var(--ink); }
+  .dcode { border-color: #c5cfe6; color: var(--ink); }
+  @media (min-width: 560px) { .gcards { grid-template-columns: 1fr 1fr; } }
 </style>
 </head>
 <body>
 
-<div class="top">
-  <div style="min-width:0;">
-    <div class="brand">Veritan <b>📱</b> <span class="tname" id="tname"></span></div>
-    <div class="age" id="age">—</div>
+<!-- v1.63: синяя «шапка» (как у «Госуслуг»): кто вошёл, поиск, уведомления, обновить; ниже — главный экран или заголовок режима -->
+<div class="hero" id="hero">
+  <div class="top">
+    <button class="who" onclick="openCfg()" aria-label="profile">
+      <span class="av"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.8"/><path d="M4.8 20a7.2 7.2 0 0 1 14.4 0"/></svg></span>
+      <span class="wtx"><span class="wn"><span id="whoName">Veritan CRM</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5.5l6.5 6.5L9 18.5"/></svg></span><span class="age" id="age">—</span></span>
+    </button>
+    <div class="ticons" id="ticons">
+      <button id="srchBtn" onclick="topSearch()" aria-label="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L20.5 20.5"/></svg></button>
+      <button id="bellBtn" onclick="openBell()" aria-label="notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.6 1.8H4.4z"/><path d="M10 20.5a2.1 2.1 0 0 0 4 0"/></svg><i class="bdot" id="bellDot"></i></button>
+      <button id="refBtn" onclick="refresh()" aria-label="refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.8 4.5v4.6h-4.6"/></svg></button>
+    </div>
   </div>
-  <div style="display:flex;align-items:center;gap:6px;">
-    <button onclick="openCfg()" aria-label="settings">⚙️</button>
-    <button onclick="refresh()" id="refBtn" aria-label="refresh">🔄</button>
-  </div>
+  <div id="heroBody"></div>
+  <div id="verBan" style="display:none;text-align:center;font-size:13px;font-weight:700;padding:11px 14px;" onclick="verReload()"></div>
 </div>
-
-<div id="verBan" style="display:none;background:#1a1a1a;color:#FEDC39;text-align:center;font-size:13px;font-weight:800;padding:11px 14px;" onclick="verReload()"></div>
 
 <div class="wrap" id="main"><div class="empty">…</div></div>
 
@@ -223,6 +322,12 @@
   <button class="ghost" style="margin-top:14px;" onclick="closeSheets();openCfg()" data-l="⚙️ Настройки, язык, уведомления"></button>
 </div>
 
+<!-- v1.63: колокольчик — всё, что ждёт сегодня (перезвоны, посылки, счета, пришедший товар) -->
+<div class="sheet" id="bellSheet">
+  <h3 data-l="Уведомления"></h3>
+  <div id="bellBody"></div>
+</div>
+
 <!-- Настройки -->
 <div class="sheet" id="cfgSheet"><div id="cfgBody"></div></div>
 
@@ -230,7 +335,7 @@
 <script>
 (function () {
   'use strict';
-  var PAGE_VER = '1.62.3';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
+  var PAGE_VER = '1.63.0';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
   var API = 'https://api.github.com';
   /* ── v1.62: язык приложения (RU / RO). L('русский текст', {n: 5}) — перевод по
      словарю RO (ключ — сам русский текст), {n} — подстановки. Нет в словаре — по-русски. ── */
@@ -660,7 +765,36 @@
     '📋 Скопировать ссылку (если приложение её попросит)': '📋 Copiază linkul (dacă aplicația îl cere)',
     'Продолжить в браузере': 'Continuă în browser',
     '📋 Ссылка скопирована': '📋 Linkul a fost copiat',
-    'Скопируй ссылку:': 'Copiază linkul:'
+    'Скопируй ссылку:': 'Copiază linkul:',
+    'Главная': 'Acasă',
+    'Уведомления': 'Notificări',
+    'Новые заказы': 'Comenzi noi',
+    'Новых заказов: {n}': 'Comenzi noi: {n}',
+    'Новых заказов нет': 'Nu sunt comenzi noi',
+    'Все заказы обработаны': 'Toate comenzile sunt procesate',
+    'Пора перезвонить': 'E timpul să suni',
+    'Перезвонить {t}': 'Revenim {t}',
+    'Новых заявок на звонок: {n}': 'Cereri noi de apel: {n}',
+    'Сегодня звонить некому': 'Azi nu e nimeni de sunat',
+    'Не звонили — позвони первым': 'Nu s-a sunat — sună primul',
+    'Новые заявки появятся здесь сами': 'Cererile noi apar aici singure',
+    'Посылки FAN: {n} требуют внимания': 'Colete FAN: {n} cer atenție',
+    'Красные флаги, задержки, наложенный — открой список': 'Steaguri roșii, întârzieri, ramburs — deschide lista',
+    'Дособрать: {n}': 'De completat: {n}',
+    'Заказы, где не хватает товара': 'Comenzi la care lipsesc produse',
+    'С посылками всё спокойно': 'Coletele sunt în regulă',
+    'FAN без проблем': 'FAN fără probleme',
+    'Проверка кодов: {a} из {b}': 'Verificare coduri: {a} din {b}',
+    'компьютер проверяет на сайте…': 'calculatorul verifică pe site…',
+    'Фото документа': 'Poza documentului',
+    'Найти товар': 'Găsește produs',
+    'База весов': 'Baza de greutăți',
+    'Расчёт FAN': 'Calcul FAN',
+    'Быстрые действия': 'Acțiuni rapide',
+    'Сегодня — {n}': 'Azi — {n}',
+    'Дел на сегодня нет — всё спокойно 🎉': 'Azi nu sunt sarcini — totul e liniștit 🎉',
+    'Показать все': 'Arată tot',
+    'В нижнем меню (до 3, остальное — в «Ещё»)': 'În meniul de jos (până la 3, restul — în «Mai mult»)'
   };
   function L(s, v) {
     var t = (LANG === 'ro' && RO[s]) ? RO[s] : s;
@@ -674,22 +808,39 @@
     var vb = document.getElementById('verBan'); if (vb) vb.textContent = L('⬆ Есть новая версия странички — нажми, чтобы обновить');
   }
 
-  var state = null, tab = localStorage.getItem('vp_tab') || 'feed', cfg = null, editId = null;
+  var state = null, tab = localStorage.getItem('vp_tab') || 'home', cfg = null, editId = null;
   var ordFilter = 'all', ordOpen = {}, checkFilter = 'all';
   var fanWeights = [];   // [{label, kg}] rows added on the FAN tab
   var FAN_DEF = { ramburs: 15, zone: 55, surchargeFixed: 0, surchargePercent: 7, baseWeight: 1, extraRate: 6, rounding: 'nearest', surchargeOnExtra: true };
   /* ── v1.62: режимы и права. Что видно на этом устройстве — решает владелец на
      компьютере (state.me.perms); нижнее меню — первые 4 (или выбранные в ⚙️), остальное — «Ещё». ── */
+  // v1.63: g — цвет плитки на главном экране (яркие градиенты, как плитки у «Госуслуг»)
   var TABS = [
-    { k: 'feed', ic: '📞', t: 'Звонки', p: 'feed' },
-    { k: 'orders', ic: '🛒', t: 'Заказы', p: 'orders' },
-    { k: 'tasks', ic: '📋', t: 'Задачи', p: 'tasks' },
-    { k: 'check', ic: '✅', t: 'Проверка', p: 'check' },
-    { k: 'stock', ic: '🔔', t: 'Наличие', p: 'stock|tasks' },
-    { k: 'find', ic: '🔎', t: 'Поиск', p: 'find' },
-    { k: 'weights', ic: '⚖️', t: 'Веса', p: 'weights' },
-    { k: 'fan', ic: '📦', t: 'FAN', p: 'fan' }
+    { k: 'feed', ic: '📞', t: 'Звонки', p: 'feed', g: 'linear-gradient(145deg,#ffa24c 0%,#ff5f6d 100%)' },
+    { k: 'orders', ic: '🛒', t: 'Заказы', p: 'orders', g: 'linear-gradient(145deg,#a879ff 0%,#6a4cf0 100%)' },
+    { k: 'tasks', ic: '📋', t: 'Задачи', p: 'tasks', g: 'linear-gradient(145deg,#5cc6ff 0%,#2d6cf0 100%)' },
+    { k: 'check', ic: '✅', t: 'Проверка', p: 'check', g: 'linear-gradient(145deg,#38e2a6 0%,#0f9b8e 100%)' },
+    { k: 'stock', ic: '🔔', t: 'Наличие', p: 'stock|tasks', g: 'linear-gradient(145deg,#ffd166 0%,#f3901c 100%)' },
+    { k: 'find', ic: '🔎', t: 'Поиск', p: 'find', g: 'linear-gradient(145deg,#8f94fb 0%,#4e54c8 100%)' },
+    { k: 'weights', ic: '⚖️', t: 'Веса', p: 'weights', g: 'linear-gradient(145deg,#f472b6 0%,#c026d3 100%)' },
+    { k: 'fan', ic: '📦', t: 'FAN', p: 'fan', g: 'linear-gradient(145deg,#ff7a59 0%,#e8364f 100%)' }
   ];
+  // Линейные значки (меню, заголовки) — в одном стиле, цвет — текущий цвет текста.
+  var ICO = {
+    home: '<path d="M4 10.5L12 4l8 6.5V19a1.5 1.5 0 0 1-1.5 1.5H15v-5.5H9v5.5H5.5A1.5 1.5 0 0 1 4 19z"/>',
+    feed: '<path d="M6.6 3.5h2.6l1.6 4.2-2 1.3a11.5 11.5 0 0 0 6.2 6.2l1.3-2 4.2 1.6v2.6a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.6 5.7a2 2 0 0 1 2-2.2z"/>',
+    orders: '<path d="M3 4h2.2l2.1 10.1a1.8 1.8 0 0 0 1.8 1.4h8.2a1.8 1.8 0 0 0 1.7-1.3L21 7.5H6.1"/><circle cx="10" cy="19.5" r="1.4"/><circle cx="17" cy="19.5" r="1.4"/>',
+    tasks: '<rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 4.5V3h6v1.5M8.5 12.5l2.2 2.2 4.8-4.7"/>',
+    check: '<circle cx="12" cy="12" r="8.5"/><path d="M8.3 12.2l2.6 2.6 4.9-5.3"/>',
+    stock: '<path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.6 1.8H4.4z"/><path d="M10 20.5a2.1 2.1 0 0 0 4 0"/>',
+    find: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L20.5 20.5"/>',
+    weights: '<path d="M12 4v15M7.5 19.5h9M5 7.5h14M7.5 7.5l-3 6.5a3 3 0 0 0 6 0zM16.5 7.5l-3 6.5a3 3 0 0 0 6 0z"/>',
+    fan: '<path d="M3.5 7.5L12 3.5l8.5 4v9L12 20.5l-8.5-4z"/><path d="M3.5 7.5L12 11.5l8.5-4M12 11.5v9"/>',
+    more: '<rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/>'
+  };
+  function ico(n) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICO[n] || ICO.more) + '</svg>'; }
+  // Логотип сайта (veritan.md, logo.svg): кольцо + знак — кнопка «Главная» и экраны входа.
+  var LOGO = '<svg viewBox="0 0 56 56" aria-hidden="true"><path d="M55 28C55 42.9117 42.9117 55 28 55C13.0883 55 1 42.9117 1 28C1 13.0883 13.0883 1 28 1C42.9117 1 55 13.0883 55 28Z" fill="#fff" stroke="#DD2C01" stroke-width="2.4"/><path fill-rule="evenodd" clip-rule="evenodd" d="M10.6567 12.1238V29.6069L28.1584 48.8L45.6 29.6069V23.0074L38.2897 31.7677V27.3026L45.6 18.6063V12.1238L28.1584 31.0627L10.6567 12.1238ZM10.6568 18.6062V23.0073L17.9671 31.7677V27.3026L10.6568 18.6062Z" fill="#DD2C01"/></svg>';
   function can(need) {
     var have = (state && state.me && Array.isArray(state.me.perms)) ? state.me.perms : [];
     return String(need || '').split('|').some(function (p) { return p && have.indexOf(p) >= 0; });
@@ -1069,17 +1220,19 @@
   }
 
   /* ── навигация: нижнее меню + «Ещё» + свайп между режимами ── */
+  // v1.63: в середине меню — круглая кнопка «Главная»; по бокам до 4 режимов (если режимов
+  // больше 4 — 3 и «Ещё»).
   function navPinned() {
     var al = tabsAllowed().map(function (t) { return t.k; });
     var pin = []; try { pin = JSON.parse(localStorage.getItem('vp_nav') || '[]') || []; } catch (e) { pin = []; }
     pin = pin.filter(function (k) { return al.indexOf(k) >= 0; });
-    if (al.length <= 5) return al;
-    al.forEach(function (k) { if (pin.length < 4 && pin.indexOf(k) < 0) pin.push(k); });
-    return pin.slice(0, 4);
+    if (al.length <= 4) return al;
+    al.forEach(function (k) { if (pin.length < 3 && pin.indexOf(k) < 0) pin.push(k); });
+    return pin.slice(0, 3);
   }
-  function navOrder() {   // порядок для свайпа: меню, потом «Ещё»
+  function navOrder() {   // порядок для свайпа: главная, меню, потом «Ещё»
     var pin = navPinned();
-    return pin.concat(tabsAllowed().map(function (t) { return t.k; }).filter(function (k) { return pin.indexOf(k) < 0; }));
+    return ['home'].concat(pin).concat(tabsAllowed().map(function (t) { return t.k; }).filter(function (k) { return pin.indexOf(k) < 0; }));
   }
   function tabCount(k) {
     if (!state) return 0;
@@ -1094,30 +1247,32 @@
     var all = tabsAllowed(), pin = navPinned(), rest = all.filter(function (t) { return pin.indexOf(t.k) < 0; });
     var btn = function (t) {
       var n = tabCount(t.k);
-      return '<button class="' + (tab === t.k ? 'on' : '') + '" onclick="setTab(\'' + t.k + '\')"><span class="ic">' + t.ic + '</span><span class="tx">' + esc(L(t.t)) + '</span>'
+      return '<button class="' + (tab === t.k ? 'on' : '') + '" onclick="setTab(\'' + t.k + '\')"><span class="ic">' + ico(t.k) + '</span><span class="tx">' + esc(L(t.t)) + '</span>'
         + (n ? '<span class="nb' + (t.k === 'feed' ? ' f' : '') + '">' + (n > 99 ? '99+' : n) + '</span>' : '') + '</button>';
     };
-    var h = all.filter(function (t) { return pin.indexOf(t.k) >= 0; }).sort(function (a, b) { return pin.indexOf(a.k) - pin.indexOf(b.k); }).map(btn).join('');
+    var items = all.filter(function (t) { return pin.indexOf(t.k) >= 0; }).sort(function (a, b) { return pin.indexOf(a.k) - pin.indexOf(b.k); }).map(btn);
     if (rest.length) {
-      var inRest = rest.some(function (t) { return t.k === tab; }), rn = rest.reduce(function (s, t) { return s + tabCount(t.k); }, 0);
-      h += '<button class="' + (inRest ? 'on' : '') + '" onclick="openMore()"><span class="ic">' + (inRest ? (rest.filter(function (t) { return t.k === tab; })[0].ic) : '☰') + '</span><span class="tx">' + esc(inRest ? L(rest.filter(function (t) { return t.k === tab; })[0].t) : L('Ещё')) + '</span>'
-        + (rn ? '<span class="nb">' + rn + '</span>' : '') + '</button>';
+      var inRest = rest.filter(function (t) { return t.k === tab; })[0], rn = rest.reduce(function (s, t) { return s + tabCount(t.k); }, 0);
+      items.push('<button class="' + (inRest ? 'on' : '') + '" onclick="openMore()"><span class="ic">' + ico(inRest ? inRest.k : 'more') + '</span><span class="tx">' + esc(inRest ? L(inRest.t) : L('Ещё')) + '</span>'
+        + (rn ? '<span class="nb">' + rn + '</span>' : '') + '</button>');
     }
-    nav.innerHTML = h;
-    nav.style.display = all.length ? 'flex' : 'none';
+    var home = '<button class="home' + (tab === 'home' ? ' on' : '') + '" onclick="setTab(\'home\')" aria-label="home"><span class="hb">' + LOGO + '</span><span class="tx">' + esc(L('Главная')) + '</span></button>';
+    var mid = Math.ceil(items.length / 2);
+    nav.innerHTML = items.slice(0, mid).join('') + home + items.slice(mid).join('');
+    nav.style.display = 'flex';
   }
   window.openMore = function () {
     var pin = navPinned();
     document.getElementById('moreTiles').innerHTML = tabsAllowed().filter(function (t) { return pin.indexOf(t.k) < 0; }).concat(tabsAllowed().filter(function (t) { return pin.indexOf(t.k) >= 0; })).map(function (t) {
       var n = tabCount(t.k);
-      return '<button class="tile' + (tab === t.k ? ' on' : '') + '" onclick="closeSheets();setTab(\'' + t.k + '\')"><span class="ic">' + t.ic + '</span>' + esc(L(t.t)) + (n ? '<span class="nb">' + n + '</span>' : '') + '</button>';
+      return '<button class="tile' + (tab === t.k ? ' on' : '') + '" style="background:' + t.g + '" onclick="closeSheets();setTab(\'' + t.k + '\')"><span class="ic">' + t.ic + '</span>' + esc(L(t.t)) + (n ? '<span class="nb">' + n + '</span>' : '') + '</button>';
     }).join('');
     document.getElementById('sheetBg').style.display = 'block';
     document.getElementById('moreSheet').style.display = 'block';
   };
   function setTab(t, dir) {
     var al = tabsAllowed().map(function (x) { return x.k; });
-    if (state && V3.st === 'ok' && al.length && al.indexOf(t) < 0) t = al[0];
+    if (state && V3.st === 'ok' && t !== 'home' && al.indexOf(t) < 0) t = 'home';
     var changed = tab !== t;
     tab = t;
     try { localStorage.setItem('vp_tab', t); } catch (e) {}   // открываться на той же вкладке
@@ -1234,18 +1389,17 @@
     var stale = state && state.updatedAt && (Date.now() - state.updatedAt) > 20 * 60000;
     ageEl.textContent = state && state.updatedAt ? (L('данные с компьютера') + ' · ' + agoText(state.updatedAt) + (stale ? ' · ' + L('компьютер не на связи?') : '')) : (V3.st === 'wait' ? L('ждём разрешения') : '—');
     ageEl.className = 'age' + (stale ? ' warn' : '');
-    var tn = document.getElementById('tname'); if (tn) tn.textContent = '';
     document.body.classList.toggle('gated', !!gateKind || V3.st !== 'ok');
-    if (gateKind) { box.innerHTML = gateHtml(gateKind, gateExtra); navPaint(); document.getElementById('fab').style.display = 'none'; return; }
-    if (!cfg) { box.innerHTML = gateHtml(legacyCfg ? 'legacy' : 'setup'); navPaint(); return; }
-    if (!state) { box.innerHTML = '<div class="empty">' + esc(L('Загружаю…')) + '</div>'; navPaint(); return; }
+    if (gateKind) { heroPaint('gate'); box.innerHTML = gateHtml(gateKind, gateExtra); navPaint(); document.getElementById('fab').style.display = 'none'; return; }
+    if (!cfg) { heroPaint('gate'); box.innerHTML = gateHtml(legacyCfg ? 'legacy' : 'setup'); navPaint(); return; }
+    if (!state) { heroPaint('gate'); box.innerHTML = '<div class="empty">' + esc(L('Загружаю…')) + '</div>'; navPaint(); return; }
     var al = tabsAllowed();
-    if (!al.length) { box.innerHTML = '<div class="gate"><div class="big">🙈</div><h2>' + esc(L('Нет доступных режимов')) + '</h2><p>' + esc(L('Владелец ещё не выдал этому устройству права. Попроси его отметить нужные режимы.')) + '</p></div>'; navPaint(); return; }
-    if (!al.some(function (t) { return t.k === tab; })) tab = al[0].k;
-    var cur = al.filter(function (t) { return t.k === tab; })[0];
-    if (tn && cur) tn.textContent = '· ' + L(cur.t);
+    if (!al.length) { heroPaint('gate'); box.innerHTML = '<div class="gate"><div class="big">🙈</div><h2>' + esc(L('Нет доступных режимов')) + '</h2><p>' + esc(L('Владелец ещё не выдал этому устройству права. Попроси его отметить нужные режимы.')) + '</p></div>'; navPaint(); return; }
+    if (tab !== 'home' && !al.some(function (t) { return t.k === tab; })) tab = 'home';
+    heroPaint(tab);
     fdTabCount();
-    if (tab === 'find') renderFind(box);
+    if (tab === 'home') renderHome(box);
+    else if (tab === 'find') renderFind(box);
     else if (tab === 'feed') renderFeed(box);
     else if (tab === 'tasks') renderTasks(box);
     else if (tab === 'stock') renderStock(box);
@@ -1255,7 +1409,125 @@
     else renderCheck(box);
     navPaint();
     appBadge();
+    bellPaint();
   }
+
+  /* ── v1.63: ШАПКА И ГЛАВНЫЙ ЭКРАН (в духе «Госуслуг»): синий градиент, кнопки-«таблетки»
+     быстрых фильтров, яркие плитки режимов со счётчиками, стеклянные карточки сводки; ниже —
+     белый лист: быстрые действия и «Сегодня». ── */
+  function heroPaint(kind) {
+    var ok = !!(state && V3.st === 'ok');
+    var who = document.getElementById('whoName'); if (who) who.textContent = ok ? (devName() || guessModel()) : 'Veritan CRM';
+    ['srchBtn', 'bellBtn'].forEach(function (id) { var b = document.getElementById(id); if (b) b.style.display = ok ? '' : 'none'; });
+    document.body.classList.toggle('home', kind === 'home');
+    var hb = document.getElementById('heroBody');
+    if (!hb) return;
+    if (kind === 'home') { hb.innerHTML = homeHeroHtml(); return; }
+    if (kind === 'gate') { hb.innerHTML = '<div class="hbrand">' + LOGO + '<div><b>Veritan</b> CRM</div></div>'; return; }
+    var t = TABS.filter(function (x) { return x.k === kind; })[0];
+    hb.innerHTML = t ? '<div class="htitle"><span class="hti">' + ico(t.k) + '</span><span id="tname">' + esc(L(t.t)) + '</span></div>' : '';
+  }
+  function grpActive() { return Object.keys((state && state.grp) || {}).filter(function (id) { return ordGrp(id); }); }
+  function fanAlarmN() { var d = (state && state.deliv) || {}; return ordAll().filter(function (o) { return ordFanAlarm(d[o.id]); }).length; }
+  function homeHeroHtml() {
+    var now = Date.now(), h = '', ch = [];
+    var nn = can('orders') ? ordNewCount() : 0, fn = can('feed') ? feedNewCount() : 0;
+    var grpN = can('orders') ? grpActive().length : 0, fanN = can('orders') ? fanAlarmN() : 0;
+    if (can('orders')) ch.push(['ordFilterGo(\'new\')', '🆕 ' + L('Новые заказы') + (nn ? ' · ' + nn : '')]);
+    if (can('feed')) ch.push(['fdGo(\'none\')', '📞 ' + L('Не звонили') + (fn ? ' · ' + fn : '')]);
+    if (grpN) ch.push(['ordFilterGo(\'grp\')', '🧩 ' + L('Дособрать') + ' · ' + grpN]);
+    if (fanN) ch.push(['ordFilterGo(\'fan\')', '🚩 ' + L('Посылки FAN') + ' · ' + fanN]);
+    if (can('feed')) ch.push(['fdGo(\'later\')', '⏰ ' + L('Перезвонить')]);
+    if (can('tasks')) ch.push(['openEdit(null)', '＋ ' + L('Задача')]);
+    if (ch.length) h += '<div class="qchips noswipe">' + ch.map(function (c) { return '<button class="gpill" onclick="' + c[0] + '">' + esc(c[1]) + '</button>'; }).join('') + '</div>';
+    h += '<div class="htiles noswipe">' + tabsAllowed().map(function (t) {
+      var n = tabCount(t.k);
+      return '<button class="htile" style="background:' + t.g + '" onclick="setTab(\'' + t.k + '\', 1)"><span class="he">' + t.ic + '</span><span class="hl">' + esc(L(t.t)) + '</span>' + (n ? '<span class="hn">' + (n > 99 ? '99+' : n) + '</span>' : '') + '</button>';
+    }).join('') + '</div>';
+    // стеклянные карточки: заказы, звонки, посылки / «дособрать», проверка кодов
+    var cards = [];
+    var gc = function (title, sub, act, alert) { return '<button class="gcard' + (alert ? ' alert' : '') + '" onclick="' + act + '"><div class="gt">' + esc(title) + '</div>' + (sub ? '<div class="gs">' + esc(sub) + '</div>' : '') + '</button>'; };
+    if (can('orders')) {
+      var pend = ordPendStatus();
+      var first = ((state && state.orders) || []).filter(function (o) { return (pend[o.id] ? ordRoleOfValue(pend[o.id]) : phRole(o.status)) === 'new'; })[0];
+      cards.push(gc(nn ? L('Новых заказов: {n}', { n: nn }) : L('Новых заказов нет'),
+        first ? ('#' + first.id + ' · ' + (first.name || '') + (first.price ? ' · ' + first.price + ' ' + L('лей') : '')) : L('Все заказы обработаны'), 'ordFilterGo(\'new\')', false));
+    }
+    if (can('feed')) {
+      var fitems = fdToday().filter(function (it) { return it.kind === 'feed'; });
+      var next = fitems.filter(function (it) { return it.at; }).sort(function (a, b) { return a.at - b.at; })[0];
+      var due = next && next.at <= now;
+      cards.push(gc(next ? (due ? L('Пора перезвонить') : L('Перезвонить {t}', { t: fdWhen(next.at, now) })) : (fn ? L('Новых заявок на звонок: {n}', { n: fn }) : L('Сегодня звонить некому')),
+        next ? ((next.name || '—') + ' · ' + L('заявка #{id}', { id: next.id })) : (fn ? L('Не звонили — позвони первым') : L('Новые заявки появятся здесь сами')), 'fdGo(\'today\')', !!due));
+    }
+    if (can('orders')) {
+      if (fanN) cards.push(gc(L('Посылки FAN: {n} требуют внимания', { n: fanN }), L('Красные флаги, задержки, наложенный — открой список'), 'ordFilterGo(\'fan\')', true));
+      else if (grpN) cards.push(gc(L('Дособрать: {n}', { n: grpN }), L('Заказы, где не хватает товара'), 'ordFilterGo(\'grp\')', false));
+      else cards.push(gc(L('С посылками всё спокойно'), L('FAN без проблем'), 'ordFilterGo(\'fan\')', false));
+    }
+    var c = state && state.check;
+    if (can('check') && c && c.running && c.codes) {
+      var dn = c.codes.filter(function (cd) { var r = (c.results || {})[cd]; return r === 'found' || r === 'missing' || r === 'uncertain'; }).length;
+      cards.push(gc(L('Проверка кодов: {a} из {b}', { a: dn, b: c.codes.length }), L('компьютер проверяет на сайте…'), 'setTab(\'check\')', false));
+    }
+    if (cards.length) h += '<div class="gcards">' + cards.join('') + '</div>';
+    return h;
+  }
+  function renderHome(box) {
+    var now = Date.now(), h = '', qa = [];
+    if (can('tasks')) qa.push(['openEdit(null)', '📝', L('Новая задача'), 'linear-gradient(145deg,#5cc6ff,#2d6cf0)']);
+    if (can('ocr') && can('check')) qa.push(['setTab(\'check\')', '📷', L('Фото документа'), 'linear-gradient(145deg,#38e2a6,#0f9b8e)']);
+    if (can('find')) qa.push(['setTab(\'find\')', '🔎', L('Найти товар'), 'linear-gradient(145deg,#8f94fb,#4e54c8)']);
+    if (can('stock|tasks')) qa.push(['setTab(\'stock\')', '🔔', L('Наличие'), 'linear-gradient(145deg,#ffd166,#f3901c)']);
+    if (can('weights')) qa.push(['setTab(\'weights\')', '⚖️', L('База весов'), 'linear-gradient(145deg,#f472b6,#c026d3)']);
+    if (can('fan')) qa.push(['setTab(\'fan\')', '📦', L('Расчёт FAN'), 'linear-gradient(145deg,#ff7a59,#e8364f)']);
+    qa.push(['openCfg()', '⚙️', L('Настройки'), 'linear-gradient(145deg,#cfd8ea,#8d9bb8)']);
+    h += '<div class="shh">' + esc(L('Быстрые действия')) + '</div><div class="qa noswipe">' + qa.map(function (q) {
+      return '<button onclick="' + q[0] + '"><span class="qi" style="background:' + q[3] + '">' + q[1] + '</span>' + esc(q[2]) + '</button>';
+    }).join('') + '</div>';
+    var items = fdToday();
+    h += '<div class="shh">' + esc(L('Сегодня — {n}', { n: items.length })) + '</div>';
+    if (!items.length) h += '<div class="empty" style="padding:24px 10px;">' + esc(L('Дел на сегодня нет — всё спокойно 🎉')) + '</div>';
+    else {
+      h += items.slice(0, 8).map(function (it) {
+        var act = it.kind === 'feed' ? 'fdOpen(' + (parseInt(it.id, 10) || 0) + ')' : (it.kind === 'order' || it.kind === 'parcel' || it.kind === 'cod' || it.kind === 'invoice') ? 'fdOrder(' + (parseInt(it.id, 10) || 0) + ')' : 'setTab(\'' + (it.kind === 'watch' ? 'stock' : 'tasks') + '\')';
+        var who = (it.name || '').trim() || it.title || '—';
+        var red = (it.at && it.at <= now) || it.sev === 'red';
+        return '<div class="tline k-' + it.kind + (red ? ' red' : '') + '"><div class="tx"><b>' + esc(who) + '</b><br>' + fdWhy(it, now) + '</div><button onclick="' + act + '">›</button></div>';
+      }).join('');
+      if (items.length > 8) h += '<div class="more"><button onclick="openBell()">' + esc(L('Показать все')) + ' · ' + items.length + '</button></div>';
+    }
+    box.innerHTML = h;
+  }
+  window.ordFilterGo = function (f) { ordFilter = f; ordShow = 30; ordQ = ''; setTab('orders', 1); };
+  window.fdGo = function (f) { fdFilter = f; try { localStorage.setItem('vp_fd_filter', f); } catch (e) {} setTab('feed', 1); };
+  // 🔔 — всё, что ждёт сегодня; точка — сколько из этого «горит» (время прошло, красный флаг, новые заявки)
+  function bellHot() {
+    if (!state) return 0;
+    var now = Date.now();
+    return fdToday().filter(function (it) { return (it.at && it.at <= now) || it.sev === 'red' || (it.kind === 'feed' && it.why === 'none'); }).length;
+  }
+  function bellPaint() {
+    var d = document.getElementById('bellDot'); if (!d) return;
+    var n = bellHot();
+    d.textContent = n > 99 ? '99+' : String(n); d.style.display = n ? 'block' : 'none';
+  }
+  window.openBell = function () {
+    var now = Date.now(), items = state ? fdToday() : [];
+    document.getElementById('bellBody').innerHTML = items.length ? items.map(function (it) { return fdTodayCard(it, now); }).join('')
+      : '<div class="empty">' + esc(L('Дел на сегодня нет — всё спокойно 🎉')) + '</div>';
+    document.getElementById('sheetBg').style.display = 'block';
+    document.getElementById('bellSheet').style.display = 'block';
+  };
+  // 🔍 — поиск: по всем заказам (если есть доступ), иначе — товар по коду
+  window.topSearch = function () {
+    if (can('orders')) {
+      ordSearchOpen = true; ordFilter = 'all'; setTab('orders');
+      var el = document.getElementById('ordQ'); if (el) { try { el.focus(); } catch (e) {} }
+    } else if (can('find')) {
+      setTab('find'); var f = document.getElementById('vfQ'); if (f) { try { f.focus(); } catch (e) {} }
+    }
+  };
 
   /* ── FIND (runs on the computer; phone sends the request) ── */
   var findQ = localStorage.getItem('vp_find_q') || '';
@@ -1402,7 +1674,7 @@
   function ordPendStatus() { var p = {}; opsQueue().forEach(function (o) { if (o.op === 'orderStatus' && o.id) p[o.id] = o.status; }); return p; }
   /* v1.62: все заказы — первая страница (свежая) + архив всех страниц (присылает компьютер
      отдельным файлом, раз в ~30 мин) + заказы «дособрать». Поиск — по номеру, имени, телефону. */
-  var ordQ = '', ordShow = 30, arcData = null, arcBusy = false, ordDetAsked = {};
+  var ordQ = '', ordShow = 30, arcData = null, arcBusy = false, ordDetAsked = {}, ordSearchOpen = false;   // ordSearchOpen — открыли поиском из шапки (v1.63)
   function ordArcRow(a) { return { id: a[0], type: a[1] || '', name: a[2] || '', phone: a[3] || '', date: a[4] || '', price: a[5] || '', status: a[6] || '', delivery: a[7] || '', payment: a[8] || '', arc: 1 }; }
   function ordAll() {
     var page = (state && state.orders) || [], have = {}, out = [];
@@ -1505,7 +1777,7 @@
       + ((grpIds.length || ordFilter === 'grp') ? chip('grp', '🧩 ' + esc(L('Дособрать')) + ' (' + grpIds.length + ')') : '')
       + ((fanN || ordFilter === 'fan') ? chip('fan', '🚩 ' + esc(L('Посылки FAN')) + ' (' + fanN + ')') : '') + '</div>';
     var q = String(ordQ || '').toLowerCase().trim(), qd = q.replace(/\D/g, '');
-    var srch = (all.length > list.length || q) ? '<input class="search" id="ordQ" placeholder="' + esc(L('🔍 Номер, имя или телефон — по всем заказам')) + '" value="' + esc(ordQ) + '" oninput="ordSearch(this.value)">' : '';
+    var srch = (all.length > list.length || q || ordSearchOpen) ? '<input class="search" id="ordQ" placeholder="' + esc(L('🔍 Номер, имя или телефон — по всем заказам')) + '" value="' + esc(ordQ) + '" oninput="ordSearch(this.value)">' : '';
     var shown = all.filter(function (o) {
       if (q) {
         var hit = String(o.id).indexOf(q) === 0 || String(o.name || '').toLowerCase().indexOf(q) >= 0 || (qd.length >= 3 && String(o.phone || '').replace(/\D/g, '').indexOf(qd) >= 0);
@@ -2481,7 +2753,7 @@
     if (!V3.aes) { boot(); return; }
     if (_refBusy) return;
     _refBusy = true; _lastRef = Date.now();
-    var b = document.getElementById('refBtn'); if (!quiet && b) { b.disabled = true; b.textContent = '⏳'; }
+    var b = document.getElementById('refBtn'); if (!quiet && b) { b.disabled = true; b.classList.add('spin'); }
     var g = localStorage.getItem('vp_g') || '';
     var viaReg = function () {
       return fetchReg().then(function (r) {
@@ -2507,7 +2779,7 @@
       var m = (e && e.message) || L('ошибка');
       if (!state) gate('err', m);
       else if (!quiet) toast(L('⚠ Не удалось загрузить') + ': ' + m);
-    }).then(function () { _refBusy = false; if (b) { b.disabled = false; b.textContent = '🔄'; } });
+    }).then(function () { _refBusy = false; if (b) { b.disabled = false; b.classList.remove('spin'); } });
   };
   function wipe() {
     ['vp_g', 'vp_box', 'vp_ops', 'vp_arc', 'vp_check_input', 'vp_ocr_warn', 'vp_find_q'].forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
@@ -2548,9 +2820,9 @@
     }
     // нижнее меню
     var al = tabsAllowed();
-    if (al.length > 5) {
+    if (al.length > 4) {
       var pin = navPinned();
-      h += '<div class="lbl">' + esc(L('В нижнем меню (до 4, остальное — в «Ещё»)')) + '</div><div class="cbchips">' + al.map(function (t) {
+      h += '<div class="lbl">' + esc(L('В нижнем меню (до 3, остальное — в «Ещё»)')) + '</div><div class="cbchips">' + al.map(function (t) {
         return '<button class="chip' + (pin.indexOf(t.k) >= 0 ? ' on' : '') + '" onclick="navPin(\'' + t.k + '\')">' + t.ic + ' ' + esc(L(t.t)) + '</button>';
       }).join('') + '</div>';
     }
@@ -2578,7 +2850,7 @@
   }
   window.navPin = function (k) {
     var pin = navPinned(), i = pin.indexOf(k);
-    if (i >= 0) pin.splice(i, 1); else { if (pin.length >= 4) pin.shift(); pin.push(k); }
+    if (i >= 0) pin.splice(i, 1); else { if (pin.length >= 3) pin.shift(); pin.push(k); }
     try { localStorage.setItem('vp_nav', JSON.stringify(pin)); } catch (e) {}
     navPaint(); cfgPaint();
   };
@@ -2595,7 +2867,7 @@
     document.getElementById('cfgSheet').style.display = 'block';
     cfgPaint();
   };
-  window.closeSheets = function () { ['sheetBg', 'editSheet', 'cfgSheet', 'feedSheet', 'moreSheet'].forEach(function (i) { var el = document.getElementById(i); if (el) el.style.display = 'none'; }); fdSel = null; };
+  window.closeSheets = function () { ['sheetBg', 'editSheet', 'cfgSheet', 'feedSheet', 'moreSheet', 'bellSheet'].forEach(function (i) { var el = document.getElementById(i); if (el) el.style.display = 'none'; }); fdSel = null; };
 
   /* ── запуск: ссылка → ключ устройства → имя → визит + приветствие → данные ── */
   var _pollT = null;
