@@ -173,6 +173,7 @@
   <h3>Подключение</h3>
   <label>GitHub токен</label><input id="cT" placeholder="ghp_…">
   <label>ID хранилища (gist)</label><input id="cG" placeholder="например 1a2b3c…">
+  <label>Ключ ИИ (Anthropic) — для фото документов во вкладке «Проверка»</label><input id="cK" type="password" autocomplete="off" placeholder="sk-ant-… (необязательно)">
   <button class="save" onclick="saveCfg()">Сохранить</button>
   <div class="note">Проще всего: на компьютере в расширении нажми «Скопировать секретную ссылку для iPhone» и открой её здесь — всё заполнится само.</div>
 </div>
@@ -182,7 +183,7 @@
 <script>
 (function () {
   'use strict';
-  var PAGE_VER = '1.60.0';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
+  var PAGE_VER = '1.61.0';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
   var API = 'https://api.github.com';
   var state = null, tab = localStorage.getItem('vp_tab') || 'tasks', cfg = null, editId = null;
   if (['find', 'feed', 'tasks', 'stock', 'orders', 'weights', 'fan', 'check'].indexOf(tab) < 0) tab = 'tasks';
@@ -236,6 +237,8 @@
       var m = (location.hash || '').match(/#cfg=([A-Za-z0-9+/=]+)/);
       if (m) {
         var c = JSON.parse(atob(m[1]));
+        // v1.61: ключ ИИ (по галочке на компьютере) — отдельно, только в этом телефоне
+        if (c && c.k) { localStorage.setItem('vp_ai_key', String(c.k)); delete c.k; }
         if (c && c.t && c.g) { localStorage.setItem('vp_cfg', JSON.stringify(c)); history.replaceState(null, '', location.pathname + location.search); }
       }
     } catch (e) {}
@@ -1095,25 +1098,183 @@
   var checkInput = localStorage.getItem('vp_check_input') || '';
   var checkLang = localStorage.getItem('vp_check_lang') || 'ru';
   function parseCodes(raw) {
-    var codes = [], suppliers = {}, seen = {}, cur = '';
+    var codes = [], suppliers = {}, seen = {}, cur = '', names = {}, lines = {};
     raw.split('\n').forEach(function (line) {
       line = line.replace(/\r$/, '').trim();
       if (!line || /^https?:\/\//i.test(line)) return;
       if (/^\d{1,4}[.\/]\d{1,2}[.\/]\d{1,4}([\s,]+\d{1,2}:\d{2}(:\d{2})?)?$/.test(line)) return;
       var m = line.match(/^(\S+)([\t]|\s{2,})(.+)$/);
-      if (m && /^\d/.test(m[1])) { if (!seen[m[1]]) { seen[m[1]] = 1; codes.push(m[1]); suppliers[m[1]] = cur; } return; }
+      if (m && /^\d/.test(m[1])) {
+        if (!seen[m[1]]) {
+          seen[m[1]] = 1; codes.push(m[1]); suppliers[m[1]] = cur; lines[m[1]] = line;
+          // v1.61: название — первая колонка после кода (для сверки модели на компьютере)
+          var nm = (m[3].split(/\t|\s{2,}/)[0] || '').trim();
+          if (nm && /[A-Za-zА-Яа-яЁё]/.test(nm)) names[m[1]] = nm.slice(0, 160);
+        }
+        return;
+      }
       var toks = line.split(/[,;\s]+/).filter(Boolean);
       var ct = toks.filter(function (t) { return /^\d/.test(t); });
       if (!ct.length) { cur = line; return; }
       ct.forEach(function (c) { if (!seen[c]) { seen[c] = 1; codes.push(c); suppliers[c] = cur; } });
     });
-    return { codes: codes, suppliers: suppliers };
+    return { codes: codes, suppliers: suppliers, names: names, lines: lines };
   }
+
+  /* ── v1.61: ФОТО ДОКУМЕНТА → КОДЫ. Распознаёт сам телефон (ключ Anthropic —
+     vp_ai_key, приходит по секретной ссылке или вводится в ⚙️), проверку на
+     сайте делает компьютер. Правила и схема — копия OCR_SYS / OCR_SCHEMA из
+     editor.html: менять оба места. ── */
+  var PH_OCR_MODEL = 'claude-opus-5-5';
+  var PH_OCR_SYS = [
+    'Ты точно переписываешь таблицы товаров с фотографий складских документов магазина Veritan (Молдова, 1С: «Soldul marfurilor», «Bon de primire», накладные). Это перепечатка, а не пересказ: ничего не додумывай.',
+    'ПРАВИЛА:',
+    '1. Бери ТОЛЬКО напечатанный (машинный) текст. Всё, что написано от руки ручкой или карандашом, — слова (например «este», «pref»), галочки, плюсы, черты, подчёркивания, зачёркивания, стрелки, цифры от руки — полностью игнорируй: не вставляй в поля и не считай строкой. Пометка от руки рядом со строкой строку не меняет.',
+    '2. Строка товара — строка таблицы с кодом товара в колонке «Cod»/«Код»: цифры, точка, цифры (81.1039, 21.6794, 3.126). Колонку «Cod grup» (короткое число вроде 81) с кодом не путай. Шапка, строки-группы без кода («Lustre»), итог («Total»), подписи — не строки товара.',
+    '3. Код переписывай ЗНАК В ЗНАК, со всеми цифрами, включая нули в конце: 81.20 и 81.2 — разные коды, 81.205 ≠ 81.2050. Не «исправляй» код по соседним строкам и не дописывай недостающие цифры.',
+    '4. name — название как напечатано (латиница, цифры, знаки / + - .), без перевода и без сокращений.',
+    '5. unit, price, qty, sum — как напечатано; точка — десятичный разделитель, без пробелов внутри числа. Нет колонки или ячейка пустая — пустая строка.',
+    '6. unsure = true, если хоть один символ кода или чисел читается неуверенно (размыто, блик, сгиб, обрез края, перекрыто пометкой ручкой); в note коротко почему. Иначе note — пустая строка.',
+    '7. Строка обрезана краем фото так, что код не виден, — не выдумывай её: посчитай в cut.',
+    '8. Порядок — как в документе сверху вниз, каждая строка один раз.',
+    '9. doc — заголовок, дата, склад/отдел, группа товаров («Marfa») — как напечатано; чего нет — пустая строка. notes — 1–2 фразы, если что-то мешало читать; иначе пусто.'
+  ].join('\n');
+  var PH_OCR_SCHEMA = {
+    type: 'object', additionalProperties: false, required: ['doc', 'rows', 'cut', 'notes'],
+    properties: {
+      doc: { type: 'object', additionalProperties: false, required: ['title', 'date', 'warehouse', 'group'],
+        properties: { title: { type: 'string' }, date: { type: 'string' }, warehouse: { type: 'string' }, group: { type: 'string' } } },
+      rows: { type: 'array', items: {
+        type: 'object', additionalProperties: false, required: ['code', 'name', 'unit', 'price', 'qty', 'sum', 'unsure', 'note'],
+        properties: { code: { type: 'string' }, name: { type: 'string' }, unit: { type: 'string' }, price: { type: 'string' }, qty: { type: 'string' },
+          sum: { type: 'string' }, unsure: { type: 'boolean' }, note: { type: 'string' } } } },
+      cut: { type: 'integer' },
+      notes: { type: 'string' }
+    }
+  };
+  var ocrPh = { busy: false, msg: '', err: false, rep: '' };
+  function aiKey() { return localStorage.getItem('vp_ai_key') || ''; }
+  function ocrWarnMap() { try { return JSON.parse(localStorage.getItem('vp_ocr_warn') || '{}') || {}; } catch (e) { return {}; } }
+  function phOcrPrep(file) {
+    var isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
+    if (isPdf) return new Promise(function (resolve, reject) {
+      if (file.size > 30 * 1024 * 1024) { reject(new Error('PDF больше 30 МБ')); return; }
+      var fr = new FileReader();
+      fr.onload = function () { var s = String(fr.result || ''); resolve({ pdf: true, block: { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: s.slice(s.indexOf(',') + 1) } } }); };
+      fr.onerror = function () { reject(new Error('PDF не прочитался')); };
+      fr.readAsDataURL(file);
+    });
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file), img = new Image();
+      img.onload = function () {
+        try {
+          var w = img.naturalWidth, h = img.naturalHeight, k = Math.min(1, 2576 / Math.max(w, h));
+          var cw = Math.max(1, Math.round(w * k)), ch = Math.max(1, Math.round(h * k));
+          var cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+          var g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cw, ch); g.drawImage(img, 0, 0, cw, ch);
+          var q = 0.86, data = cv.toDataURL('image/jpeg', q);
+          while (data.length > 3600000 && q > 0.5) { q -= 0.1; data = cv.toDataURL('image/jpeg', q); }
+          URL.revokeObjectURL(url);
+          resolve({ pdf: false, block: { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: data.slice(data.indexOf(',') + 1) } } });
+        } catch (e) { URL.revokeObjectURL(url); reject(e); }
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('фото не открылось')); };
+      img.src = url;
+    });
+  }
+  function phOcrApi(body, noFallback) {
+    var b = Object.assign({}, body), hd = { 'Content-Type': 'application/json', 'x-api-key': aiKey(), 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' };
+    if (!noFallback) { b.fallbacks = 'default'; hd['anthropic-beta'] = 'server-side-fallback-2026-07-01'; }
+    return fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: hd, body: JSON.stringify(b) }).then(function (r) {
+      return r.text().then(function (t) {
+        var d = null; try { d = JSON.parse(t); } catch (e) { d = null; }
+        if (d && d.error) {
+          if (!noFallback && r.status === 400 && /fallback|beta/i.test(d.error.message || '')) return phOcrApi(body, true);
+          throw new Error(r.status === 401 ? 'ключ ИИ не подошёл — проверь в ⚙️' : r.status === 429 ? 'много запросов к ИИ — подожди минуту' : (r.status === 529 ? 'ИИ перегружен — повтори через минуту' : (d.error.message || ('ошибка ' + r.status))));
+        }
+        if (!d || !r.ok) throw new Error('ИИ ответил ошибкой ' + r.status);
+        return d;
+      });
+    });
+  }
+  function phNum(s) { var t = String(s == null ? '' : s).replace(/[\s ]/g, ''); if (/,\d{1,2}$/.test(t) && t.indexOf('.') < 0) t = t.replace(',', '.'); t = t.replace(/,/g, ''); var n = parseFloat(t); return isFinite(n) ? n : NaN; }
+  function phOcrWarn(r) {
+    var w = [];
+    if (!/^\d{1,4}\.\d{1,6}$/.test(r.code)) w.push('код необычного вида');
+    var p = phNum(r.price), q = phNum(r.qty), s = phNum(r.sum);
+    if (isFinite(p) && isFinite(q) && isFinite(s) && s > 0 && Math.abs(p * q - s) > Math.max(0.05, s * 0.002)) w.push('цена × кол-во ≠ сумма');
+    if (r.unsure) w.push(String(r.note || '').trim() || 'плохо читается');
+    return w.join('; ');
+  }
+  function phClean(s) { return String(s == null ? '' : s).replace(/[\t\r\n]+/g, ' ').replace(/\s{2,}/g, ' ').trim(); }
+  window.ocrPick = function (inp) {
+    var files = Array.prototype.slice.call((inp && inp.files) || []).slice(0, 20);
+    if (inp) inp.value = '';
+    if (!files.length || ocrPh.busy) return;
+    if (!aiKey()) { toast('⚠ Нет ключа ИИ — см. подсказку ниже'); return; }
+    ocrPh = { busy: true, msg: '', err: false, rep: '' };
+    var rows = [], seen = {}, dup = 0, cut = 0, fails = [], usage = { i: 0, o: 0 }, docTitle = '';
+    var i = 0;
+    var next = function () {
+      if (i >= files.length) return Promise.resolve();
+      var f = files[i++];
+      ocrPh.msg = '📷 Читаю ' + i + ' из ' + files.length + '… (20–60 с на страницу)'; render();
+      return phOcrPrep(f).then(function (pp) {
+        return phOcrApi({ model: PH_OCR_MODEL, max_tokens: pp.pdf ? 32000 : 16000, system: PH_OCR_SYS,
+          messages: [{ role: 'user', content: [pp.block, { type: 'text', text: (pp.pdf ? 'PDF-документ' : 'Фото ' + i + ' из ' + files.length) + '. Перепиши все напечатанные строки товаров по правилам.' }] }],
+          output_config: { effort: 'low', format: { type: 'json_schema', schema: PH_OCR_SCHEMA } } });
+      }).then(function (d) {
+        if (d.usage) { usage.i += d.usage.input_tokens || 0; usage.o += d.usage.output_tokens || 0; }
+        if (d.stop_reason === 'refusal') throw new Error('ИИ отказался читать это фото');
+        if (d.stop_reason === 'max_tokens') throw new Error('слишком много строк — раздели');
+        var txt = (d.content || []).filter(function (b) { return b && b.type === 'text'; }).map(function (b) { return b.text || ''; }).join('');
+        var obj = null; try { obj = JSON.parse(txt); } catch (e) { obj = null; }
+        if (!obj || !Array.isArray(obj.rows)) throw new Error('непонятный ответ ИИ');
+        if (!docTitle && obj.doc) docTitle = [obj.doc.title, obj.doc.date, obj.doc.warehouse, obj.doc.group].filter(function (x) { return x && String(x).trim(); }).join(' · ');
+        cut += +obj.cut || 0;
+        obj.rows.forEach(function (r0) {
+          var r = { code: phClean(r0.code).replace(/\s+/g, ''), name: phClean(r0.name), unit: phClean(r0.unit), price: phClean(r0.price), qty: phClean(r0.qty), sum: phClean(r0.sum), unsure: !!r0.unsure, note: phClean(r0.note), page: i };
+          if (!r.code) return;
+          if (seen[r.code]) { dup++; return; }
+          seen[r.code] = 1; r.warn = phOcrWarn(r); rows.push(r);
+        });
+      }).catch(function (e) { fails.push('фото ' + i + ': ' + ((e && e.message) || 'ошибка')); }).then(next);
+    };
+    next().then(function () {
+      var cost = (usage.i * 4 + usage.o * 20) / 1e6;
+      ocrPh.busy = false;
+      if (!rows.length) { ocrPh.msg = '⚠ Строк с кодом не нашлось' + (fails.length ? ': ' + fails.join('; ') : ''); ocrPh.err = true; render(); return; }
+      var lines = rows.map(function (r) { return [r.code, r.name, r.unit, r.qty, r.price].join('\t').replace(/\t+$/, ''); }).join('\n');
+      var replace = !checkInput.trim() || confirm('В списке уже есть коды. Заменить их строками с фото? (Отмена — добавить в конец)');
+      checkInput = replace ? lines : (checkInput.replace(/\s+$/, '') + '\n' + lines);
+      localStorage.setItem('vp_check_input', checkInput);
+      var wm = replace ? {} : ocrWarnMap();
+      rows.forEach(function (r) { if (r.warn) wm[r.code] = r.warn; else delete wm[r.code]; });
+      try { localStorage.setItem('vp_ocr_warn', JSON.stringify(wm)); } catch (e) {}
+      var warnN = rows.filter(function (r) { return r.warn; }).length;
+      ocrPh.msg = '✓ Распознано строк: ' + rows.length + (cost ? ' · ≈ $' + cost.toFixed(2) : '') + (fails.length ? ' · ⚠ ' + fails.join('; ') : '');
+      ocrPh.rep = (docTitle ? '📄 ' + docTitle + '. ' : '') + (dup ? 'Повторов убрано: ' + dup + '. ' : '') + (warnN ? '⚠ Проверь по фото: ' + warnN + ' (помечены в результатах). ' : '') + (cut ? '✂ Обрезано краем: ' + cut + ' — пересними. ' : '') + 'Теперь нажми «Проверить через компьютер».';
+      render();
+    });
+  };
+
   function renderCheck(box) {
     var parsed = parseCodes(checkInput);
     var c = (state && state.check) || null;
     var pendingReq = opsQueue().some(function (o) { return o.op === 'check'; });
     var h = '<div class="sec">Проверка наличия кодов на сайте</div>';
+    // v1.61: фото документа → коды с названиями
+    h += '<div class="card"><div class="ttl">📷 Фото документа</div>' +
+      '<div class="meta">Сфотографируй лист или выбери фото/PDF, что прислал менеджер, — коды с названиями встанут в список ниже. Пометки ручкой пропускаются.</div>';
+    if (aiKey()) {
+      h += '<label class="save" style="display:block;text-align:center;' + (ocrPh.busy ? 'opacity:.5;pointer-events:none;' : '') + '">' + (ocrPh.busy ? '⏳ Распознаю…' : '📷 Сфотографировать / выбрать') +
+        '<input type="file" accept="image/*,application/pdf" multiple style="display:none;" onchange="ocrPick(this)"></label>';
+    } else {
+      h += '<div class="err" style="margin:10px 0 0;">Нужен ключ ИИ. На компьютере: «Задачи» → «📱 Синхронизация с iPhone» → галочка «Добавить в ссылку ключ ИИ» → «Скопировать ссылку» и открой её здесь. Или вставь ключ в ⚙️.</div>';
+    }
+    if (ocrPh.msg) h += '<div class="note" style="color:' + (ocrPh.err ? '#c62828' : '#0a6e8a') + ';font-weight:700;">' + esc(ocrPh.msg) + '</div>';
+    if (ocrPh.rep) h += '<div class="note">' + esc(ocrPh.rep) + '</div>';
+    h += '</div>';
     h += '<textarea class="codes" id="ckIn" placeholder="Вставь коды (можно списком из 1С — как на компьютере)" oninput="ckInput(this.value)">' + esc(checkInput) + '</textarea>';
     h += '<div style="margin-top:8px;">' +
       '<button class="chip' + (checkLang === 'ru' ? ' on' : '') + '" onclick="ckLang(\'ru\')">RU</button>' +
@@ -1136,12 +1297,27 @@
         var r = (c.results || {})[cd] || 'pending';
         return checkFilter === 'all' || r === checkFilter;
       }).slice(0, 300);
+      var wm = ocrWarnMap();
       h += shown.map(function (cd) {
         var r = (c.results || {})[cd] || 'pending';
         var n = (c.foundCounts || {})[cd];
-        var ic = r === 'found' ? '<b style="color:#1a8a55;">✓</b>' : r === 'missing' ? '<b style="color:#c62828;">✗</b>' : r === 'uncertain' ? '<b style="color:#b46b00;">?' + (n != null && n > 1 ? n : '') + '</b>' : '…';
+        var ic = r === 'found' ? '<b style="color:#1a8a55;">✓</b>' : r === 'missing' ? '<b style="color:#c62828;">✗</b>' : r === 'uncertain' ? '<b style="color:#b46b00;">?' + (n != null && n > 1 && !((c.info || {})[cd] || {}).w ? n : '') + '</b>' : '…';
         var sup = (c.suppliers || {})[cd];
-        return '<div class="res"><span>' + esc(cd) + (sup ? ' <span style="color:#bbb;font-size:11px;">' + esc(sup) + '</span>' : '') + '</span>' + ic + '</div>';
+        // v1.61: название из документа и что нашлось на сайте (точная сверка кода на компьютере)
+        var nm = (c.names || {})[cd], inf = (c.info || {})[cd] || null, extra = [];
+        if (wm[cd]) extra.push('<span style="color:#b46b00;font-weight:700;">⚠ по фото: ' + esc(wm[cd]) + '</span>');
+        if (inf) {
+          if (r === 'found' && inf.u) extra.push('на сайте: <a href="' + esc(inf.u) + '" target="_blank" rel="noopener" style="color:#0a6e8a;">' + esc(inf.nm || 'страница') + '</a>' + (inf.p ? ' · ' + esc(inf.p) : '') + (inf.s === 1 ? ' · <span style="color:#1a8a55;">в наличии</span>' : inf.s === 0 ? ' · <span style="color:#b46b00;">на заказ</span>' : ''));
+          if (inf.mo === 0) extra.push('<span style="color:#b46b00;font-weight:700;">⚠ модель в названии на сайте другая — код верный?</span>');
+          if (inf.w && r !== 'found') extra.push(esc(inf.w));
+          (inf.alt || []).forEach(function (a) { extra.push('↪ похожий: <b>' + esc(a.c) + '</b> <a href="' + esc(a.u) + '" target="_blank" rel="noopener" style="color:#0a6e8a;">' + esc(a.nm || '') + '</a>'); });
+          if (r === 'missing' && inf.oth && inf.oth.length && !(inf.alt && inf.alt.length)) extra.push('<span style="color:#aaa;">поиск нашёл другие коды: ' + esc(inf.oth.join(', ')) + '</span>');
+        }
+        return '<div class="res" style="display:block;">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><span><b>' + esc(cd) + '</b>' + (sup ? ' <span style="color:#bbb;font-size:11px;">' + esc(sup) + '</span>' : '') + '</span>' + ic + '</div>' +
+          (nm ? '<div style="font-size:12px;color:#666;margin-top:2px;">' + esc(nm) + '</div>' : '') +
+          (extra.length ? '<div style="font-size:12px;color:#555;margin-top:4px;line-height:1.45;">' + extra.join('<br>') + '</div>' : '') +
+          '</div>';
       }).join('');
     }
     box.innerHTML = h;
@@ -1158,7 +1334,9 @@
   window.ckSend = function () {
     var p = parseCodes(checkInput);
     if (!p.codes.length) { toast('⚠ Вставь коды'); return; }
-    opPush({ op: 'check', codes: p.codes, suppliers: p.suppliers, lang: checkLang });
+    // v1.61: названия из строк — компьютер сверит модель и поищет «похожий под другим кодом»
+    var nms = {}; p.codes.slice(0, 500).forEach(function (cd) { if (p.names[cd]) nms[cd] = p.names[cd]; });
+    opPush({ op: 'check', codes: p.codes, suppliers: p.suppliers, lang: checkLang, names: nms });
     render();
     toast('✓ Запрос отправлен — компьютер проверит и пришлёт пуш');
   };
@@ -1166,7 +1344,9 @@
     var c = (state && state.check) || null;
     if (!c) return;
     var missing = (c.codes || []).filter(function (cd) { return (c.results || {})[cd] === 'missing'; });
-    var text = missing.join('\n');
+    // v1.61: с названием из документа (по ним менеджер и заводит товар)
+    var lines = parseCodes(checkInput).lines;
+    var text = missing.map(function (cd) { return lines[cd] || ((c.names || {})[cd] ? cd + '\t' + c.names[cd] : cd); }).join('\n');
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { toast('📋 Скопировано: ' + missing.length); }, function () { toast('⚠ Не удалось скопировать'); });
   };
 
@@ -1277,6 +1457,8 @@
   window.openCfg = function () {
     document.getElementById('cT').value = cfg ? cfg.t : '';
     document.getElementById('cG').value = cfg ? cfg.g : '';
+    var ck = document.getElementById('cK');
+    if (ck) { ck.value = ''; ck.placeholder = localStorage.getItem('vp_ai_key') ? 'сохранён — оставь пустым, чтобы не менять' : 'sk-ant-… (необязательно)'; }
     document.getElementById('sheetBg').style.display = 'block';
     document.getElementById('cfgSheet').style.display = 'block';
   };
@@ -1286,6 +1468,8 @@
     if (!t || !g) { toast('⚠ Заполни оба поля'); return; }
     cfg = { t: t, g: g };
     localStorage.setItem('vp_cfg', JSON.stringify(cfg));
+    var kv = ((document.getElementById('cK') || {}).value || '').trim();
+    if (kv) localStorage.setItem('vp_ai_key', kv);
     closeSheets(); refresh();
   };
 
