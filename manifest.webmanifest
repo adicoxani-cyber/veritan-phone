@@ -3,7 +3,7 @@
   "short_name": "Veritan",
   "description": "Veritan — заказы, звонки, задачи и проверка товара с телефона",
   "display": "standalone",
-  "background_color": "#1a1a1a",
+  "background_color": "#ffffff",
   "theme_color": "#1a1a1a",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
