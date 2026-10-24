@@ -11,8 +11,8 @@ self.addEventListener('push', function (e) {
   try { d = e.data ? e.data.json() : {}; } catch (x) { d = { t: 'Veritan', b: e.data ? e.data.text() : '' }; }
   var opts = {
     body: String(d.b || ''),
-    icon: 'icon-192.png',
-    badge: 'icon-192.png',
+    icon: 'icon-192.png?v=2',
+    badge: 'icon-192.png?v=2',
     data: { tab: String(d.tab || ''), id: String(d.id || ''), k: String(d.k || '') },
     timestamp: +d.at || Date.now()
   };
