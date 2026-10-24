@@ -244,6 +244,21 @@
   .nb.f { background: #ff9500; }
   .htiles, .qchips, .qa { scroll-padding-left: 14px; }
   .gate .ghost { background: #fff; box-shadow: 0 2px 8px rgba(16,36,94,.08); }
+  /* ── v1.63.1 ── */
+  /* iOS 26, приложение с экрана «Домой» (ошибка WebKit 301108): пока страница КОРОЧЕ экрана,
+     видимая область короче на высоту строки статуса — нижнее меню «висело» над краем экрана,
+     под ним полоса фона (было на коротком экране «Звонки»). Страница всегда не короче экрана —
+     и iOS отдаёт полную высоту. min() — чтобы при непрозрачной строке статуса не было прокрутки. */
+  @media (display-mode: standalone) {
+    html { min-height: min(100lvh, calc(100% + env(safe-area-inset-top, 0px))); }
+    /* iOS 26 размывает полосу под строкой статуса чуть ниже самой строки — шапку опускаем ниже размытия */
+    .top { padding-top: calc(env(safe-area-inset-top, 0px) + 30px); }
+  }
+  /* всплывающие окна: шапка с «ручкой» и ✕ остаётся наверху при прокрутке; сверху всегда видна полоса фона */
+  .sheet { padding-top: 0; max-height: calc(100vh - env(safe-area-inset-top, 0px) - 64px); }
+  .sheet-hd { position: sticky; top: 0; z-index: 3; margin: 0 -16px 6px; height: 46px; background: rgba(255,255,255,.96); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border-radius: 24px 24px 0 0; display: flex; align-items: flex-start; justify-content: center; touch-action: none; }
+  .sheet-hd .grab { width: 42px; height: 5px; border-radius: 3px; background: #d3dae8; margin-top: 9px; }
+  .sheet-hd .sx { position: absolute; right: 12px; top: 8px; width: 34px; height: 34px; border-radius: 50%; border: none; background: #eef2fb; color: #233a74; font-size: 16px; font-weight: 800; font-family: inherit; display: flex; align-items: center; justify-content: center; padding: 0; }
   .gate h2 { color: var(--ink); }
   .dcode { border-color: #c5cfe6; color: var(--ink); }
   @media (min-width: 560px) { .gcards { grid-template-columns: 1fr 1fr; } }
@@ -335,7 +350,7 @@
 <script>
 (function () {
   'use strict';
-  var PAGE_VER = '1.63.0';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
+  var PAGE_VER = '1.63.1';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
   var API = 'https://api.github.com';
   /* ── v1.62: язык приложения (RU / RO). L('русский текст', {n: 5}) — перевод по
      словарю RO (ключ — сам русский текст), {n} — подстановки. Нет в словаре — по-русски. ── */
@@ -766,6 +781,10 @@
     'Продолжить в браузере': 'Continuă în browser',
     '📋 Ссылка скопирована': '📋 Linkul a fost copiat',
     'Скопируй ссылку:': 'Copiază linkul:',
+    'В базе весов такого кода нет': 'Codul nu e în baza de greutăți',
+    'Все заказы': 'Toate comenzile',
+    'Данные заказа подтягиваются из архива…': 'Datele comenzii se încarcă din arhivă…',
+    'Закрыть': 'Închide',
     'Главная': 'Acasă',
     'Уведомления': 'Notificări',
     'Новые заказы': 'Comenzi noi',
@@ -808,7 +827,9 @@
     var vb = document.getElementById('verBan'); if (vb) vb.textContent = L('⬆ Есть новая версия странички — нажми, чтобы обновить');
   }
 
-  var state = null, tab = localStorage.getItem('vp_tab') || 'home', cfg = null, editId = null;
+  // v1.63.1: приложение всегда открывается на «Главной» (раньше — на последнем открытом режиме);
+  // исключение — открыли из уведомления (#tab=…&id=…)
+  var state = null, tab = 'home', cfg = null, editId = null;
   var ordFilter = 'all', ordOpen = {}, checkFilter = 'all';
   var fanWeights = [];   // [{label, kg}] rows added on the FAN tab
   var FAN_DEF = { ramburs: 15, zone: 55, surchargeFixed: 0, surchargePercent: 7, baseWeight: 1, extraRate: 6, rounding: 'nearest', surchargeOnExtra: true };
@@ -907,6 +928,7 @@
       if (isStandalone()) { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} }
     }
     var tm = h.match(/[#&]tab=([a-z]+)/); if (tm) tab = tm[1];   // открыли из уведомления
+    var im = h.match(/[#&]id=(\d+)/); if (tm && tm[1] === 'orders' && im) ordFocus = parseInt(im[1], 10) || 0;   // …на конкретном заказе
     try { cfg = JSON.parse(localStorage.getItem('vp_cfg') || 'null'); } catch (e) { cfg = null; }
     if (cfg && cfg.v !== 3) { legacyCfg = true; cfg = null; }
     if (cfg && (!cfg.t || !cfg.g || !cfg.c)) cfg = null;
@@ -1247,7 +1269,7 @@
     var all = tabsAllowed(), pin = navPinned(), rest = all.filter(function (t) { return pin.indexOf(t.k) < 0; });
     var btn = function (t) {
       var n = tabCount(t.k);
-      return '<button class="' + (tab === t.k ? 'on' : '') + '" onclick="setTab(\'' + t.k + '\')"><span class="ic">' + ico(t.k) + '</span><span class="tx">' + esc(L(t.t)) + '</span>'
+      return '<button class="' + (tab === t.k ? 'on' : '') + '" onclick="navGo(\'' + t.k + '\')"><span class="ic">' + ico(t.k) + '</span><span class="tx">' + esc(L(t.t)) + '</span>'
         + (n ? '<span class="nb' + (t.k === 'feed' ? ' f' : '') + '">' + (n > 99 ? '99+' : n) + '</span>' : '') + '</button>';
     };
     var items = all.filter(function (t) { return pin.indexOf(t.k) >= 0; }).sort(function (a, b) { return pin.indexOf(a.k) - pin.indexOf(b.k); }).map(btn);
@@ -1265,7 +1287,7 @@
     var pin = navPinned();
     document.getElementById('moreTiles').innerHTML = tabsAllowed().filter(function (t) { return pin.indexOf(t.k) < 0; }).concat(tabsAllowed().filter(function (t) { return pin.indexOf(t.k) >= 0; })).map(function (t) {
       var n = tabCount(t.k);
-      return '<button class="tile' + (tab === t.k ? ' on' : '') + '" style="background:' + t.g + '" onclick="closeSheets();setTab(\'' + t.k + '\')"><span class="ic">' + t.ic + '</span>' + esc(L(t.t)) + (n ? '<span class="nb">' + n + '</span>' : '') + '</button>';
+      return '<button class="tile' + (tab === t.k ? ' on' : '') + '" style="background:' + t.g + '" onclick="closeSheets();navGo(\'' + t.k + '\')"><span class="ic">' + t.ic + '</span>' + esc(L(t.t)) + (n ? '<span class="nb">' + n + '</span>' : '') + '</button>';
     }).join('');
     document.getElementById('sheetBg').style.display = 'block';
     document.getElementById('moreSheet').style.display = 'block';
@@ -1283,6 +1305,8 @@
     if (changed) { try { window.scrollTo(0, 0); } catch (e) {} }
   }
   window.setTab = setTab;
+  // меню и плитки: «Заказы» — всегда список (а не последний открытый заказ)
+  window.navGo = function (k, dir) { if (k === 'orders') ordFocus = 0; setTab(k, dir); };
   // свайп влево/вправо по списку — соседний режим
   (function () {
     var sx = 0, sy = 0, st = 0, ok = false;
@@ -1383,6 +1407,26 @@
     boot();
   };
 
+  // v1.63.1: пока в поле ввода на экране идёт набор, экран целиком не перерисовываем —
+  // iPhone при пересоздании поля сбрасывает клавиатуру (на буквы) и прячет курсор.
+  var _renderLater = false;
+  function typingNow() {
+    var a = document.activeElement;
+    return !!(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.type !== 'checkbox' && a.closest && a.closest('#main'));
+  }
+  // обновить только список под полем, если идёт набор; иначе — весь экран
+  function softRender() {
+    if (!typingNow()) { render(); return; }
+    var l;
+    if (tab === 'orders' && (l = document.getElementById('ordList'))) l.innerHTML = ordListHtml();
+    else if (tab === 'weights' && (l = document.getElementById('wList'))) l.innerHTML = wtsListHtml();
+    else if (tab === 'fan' && (l = document.getElementById('fanFound'))) l.innerHTML = fanFoundHtml();
+    else _renderLater = true;
+  }
+  document.addEventListener('focusout', function () {
+    if (!_renderLater) return;
+    setTimeout(function () { if (_renderLater && !typingNow()) { _renderLater = false; render(); } }, 150);
+  });
   function render() {
     var box = document.getElementById('main');
     var ageEl = document.getElementById('age');
@@ -1442,7 +1486,7 @@
     if (ch.length) h += '<div class="qchips noswipe">' + ch.map(function (c) { return '<button class="gpill" onclick="' + c[0] + '">' + esc(c[1]) + '</button>'; }).join('') + '</div>';
     h += '<div class="htiles noswipe">' + tabsAllowed().map(function (t) {
       var n = tabCount(t.k);
-      return '<button class="htile" style="background:' + t.g + '" onclick="setTab(\'' + t.k + '\', 1)"><span class="he">' + t.ic + '</span><span class="hl">' + esc(L(t.t)) + '</span>' + (n ? '<span class="hn">' + (n > 99 ? '99+' : n) + '</span>' : '') + '</button>';
+      return '<button class="htile" style="background:' + t.g + '" onclick="navGo(\'' + t.k + '\', 1)"><span class="he">' + t.ic + '</span><span class="hl">' + esc(L(t.t)) + '</span>' + (n ? '<span class="hn">' + (n > 99 ? '99+' : n) + '</span>' : '') + '</button>';
     }).join('') + '</div>';
     // стеклянные карточки: заказы, звонки, посылки / «дособрать», проверка кодов
     var cards = [];
@@ -1499,7 +1543,7 @@
     }
     box.innerHTML = h;
   }
-  window.ordFilterGo = function (f) { ordFilter = f; ordShow = 30; ordQ = ''; setTab('orders', 1); };
+  window.ordFilterGo = function (f) { ordFilter = f; ordShow = 30; ordQ = ''; ordFocus = 0; setTab('orders', 1); };
   window.fdGo = function (f) { fdFilter = f; try { localStorage.setItem('vp_fd_filter', f); } catch (e) {} setTab('feed', 1); };
   // 🔔 — всё, что ждёт сегодня; точка — сколько из этого «горит» (время прошло, красный флаг, новые заявки)
   function bellHot() {
@@ -1522,7 +1566,7 @@
   // 🔍 — поиск: по всем заказам (если есть доступ), иначе — товар по коду
   window.topSearch = function () {
     if (can('orders')) {
-      ordSearchOpen = true; ordFilter = 'all'; setTab('orders');
+      ordSearchOpen = true; ordFilter = 'all'; ordFocus = 0; setTab('orders');
       var el = document.getElementById('ordQ'); if (el) { try { el.focus(); } catch (e) {} }
     } else if (can('find')) {
       setTab('find'); var f = document.getElementById('vfQ'); if (f) { try { f.focus(); } catch (e) {} }
@@ -1674,7 +1718,7 @@
   function ordPendStatus() { var p = {}; opsQueue().forEach(function (o) { if (o.op === 'orderStatus' && o.id) p[o.id] = o.status; }); return p; }
   /* v1.62: все заказы — первая страница (свежая) + архив всех страниц (присылает компьютер
      отдельным файлом, раз в ~30 мин) + заказы «дособрать». Поиск — по номеру, имени, телефону. */
-  var ordQ = '', ordShow = 30, arcData = null, arcBusy = false, ordDetAsked = {}, ordSearchOpen = false;   // ordSearchOpen — открыли поиском из шапки (v1.63)
+  var ordQ = '', ordShow = 30, arcData = null, arcBusy = false, ordDetAsked = {}, ordSearchOpen = false, ordFocus = 0;   // ordSearchOpen — открыли поиском из шапки (v1.63); ordFocus — экран одного заказа (v1.63.1)
   function ordArcRow(a) { return { id: a[0], type: a[1] || '', name: a[2] || '', phone: a[3] || '', date: a[4] || '', price: a[5] || '', status: a[6] || '', delivery: a[7] || '', payment: a[8] || '', arc: 1 }; }
   function ordAll() {
     var page = (state && state.orders) || [], have = {}, out = [];
@@ -1722,11 +1766,13 @@
     }).then(function (t) {
       var box = JSON.parse(t || 'null');
       return boxOpen(box, 'arc').then(function (d) { arcData = d; try { localStorage.setItem('vp_arc', JSON.stringify(box)); } catch (e) {} });
-    }).catch(function () {}).then(function () { arcBusy = false; if (tab === 'orders') render(); });
+    }).catch(function () {}).then(function () { arcBusy = false; if (tab === 'orders') softRender(); });
   }
   window.ordSearch = function (v) {
-    ordQ = v; ordShow = 30; render();
-    var el = document.getElementById('ordQ'); if (el) { el.focus(); try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {} }
+    ordQ = v; ordShow = 30; ordFocus = 0;
+    // только список: поле ввода не трогаем — клавиатура iPhone остаётся как была
+    var l = document.getElementById('ordList');
+    if (l && tab === 'orders') l.innerHTML = ordListHtml(); else render();
   };
   window.ordMore = function () { ordShow += 40; render(); };
   // «⚡ Сегодня по заказам»: перезвоны, посылки с тревогой, наложенный, счета (из общего списка дня)
@@ -1764,20 +1810,106 @@
     return '<span class="badge ' + cls + '">' + ico + ' FAN: ' + esc(label) + (ours && ours.toLowerCase() !== label.toLowerCase() ? ' — ' + esc(ours) : '')
       + (dl.rsn ? ' · ' + esc(dl.rsn) : '') + (dl.at ? ' · ' + esc(L('с {t}', { t: fdWhen(dl.at) })) : '') + '</span>';
   }
-  function renderOrders(box) {
-    if (state && state.arc && typeof arcLoad === 'function') arcLoad();
+  // v1.63.1: одна карточка заказа — в списке и на экране одного заказа (из «Задач», «Сегодня», уведомлений)
+  function ordCardHtml(o, pend, dAll, details) {
+    var meta = [];
+    if (o.phone) meta.push('📞 <a href="' + telHref(o.phone) + '">' + esc(o.phone) + '</a>');
+    if (o.price) meta.push('💰 ' + esc(o.price) + ' ' + esc(L('лей')));
+    if (o.date) meta.push(esc(o.date));
+    // Роль статуса — по названию из админки (и новые, и прежние подписи).
+    var role = pend[o.id] ? ordRoleOfValue(pend[o.id]) : phRole(o.status);
+    var oc = fdOrderCb(o.id), now0 = Date.now(), cbSt = ordCbSt(oc);
+    // У «Перезвонить позже / Не ответил» показываем, что было на самом деле.
+    var stTxt = pend[o.id] ? (statusText(pend[o.id]) + ' · ' + L('отправляется…'))
+      : (role === 'callback' && cbSt === 'noanswer') ? (L('📵 Не ответил') + (oc.miss ? ' ×' + oc.miss : ''))
+      : (role === 'callback' && cbSt === 'later') ? L('⏰ Перезвонить позже')
+      : (o.status || '');
+    var cbBadge = (oc.at ? '<span class="badge ' + (oc.at <= now0 ? 'bg-out' : 'bg-o-later') + '">⏰ ' + esc(fdWhen(oc.at, now0)) + '</span>' : '')
+      + (oc.miss >= 2 && role !== 'callback' ? '<span class="badge bg-o-noans">📵 ×' + oc.miss + '</span>' : '');
+    var dl = dAll[o.id];
+    if (dl && dl.awb) meta.push('📦 ' + esc(dl.awb) + (dl.auto ? ' 🔗' : ''));
+    cbBadge += ordFanBadge(dl);
+    // v1.50: проблема с посылкой / расхождение наложенного (считает компьютер), причина отмены.
+    if (dl && dl.prob) cbBadge += '<span class="badge bg-out">🚚 ' + esc(dl.prob) + '</span>';
+    if (dl && dl.cod) cbBadge += '<span class="badge bg-out">💰 ' + esc(dl.cod) + '</span>';
+    // v1.62: «дособрать» — сколько позиций уже есть
+    var g = ordGrp(o.id);
+    if (g) cbBadge += '<span class="badge ' + (g.ready === g.total ? 'bg-in' : 'bg-grp') + '">🧩 ' + esc(g.ready === g.total ? L('Укомплектован — можно звонить') : L('Дособрать: не хватает {n} из {t}', { n: g.total - g.ready, t: g.total })) + '</span>';
+    var crTxt = ((state && state.cr) || {})[o.id];
+    if (crTxt) meta.push('✖ ' + esc(crTxt));
+    var stCls = role === 'callback' ? (cbSt === 'later' ? 'bg-o-later' : 'bg-o-noans') : (ROLE_CLS[role] || 'bg-done');
+    var stBadge = '<span class="badge ' + stCls + '">' + esc(stTxt) + '</span>';
+    var open = !!ordOpen[o.id];
+    var detHtml = '';
+    if (open) {
+      var d = details[o.id];
+      if (d && d.items && d.items.length) {
+        var total = 0, gmap = {};
+        if (g) g.items.forEach(function (gi) { if (gi.code) gmap[String(gi.code)] = gi; });
+        detHtml += (d.user && d.user.address ? '<div class="meta">📍 ' + esc(d.user.address) + '</div>' : '');
+        if (g) detHtml += '<div class="meta" style="color:#a61e4d;font-weight:800;">🧩 ' + esc(L('Состав заказа: что есть и чего не хватает')) + '</div>';
+        detHtml += d.items.map(function (it) {
+          var sum = num(it.price) * num(it.qty); total += sum;
+          var gi = g ? gmap[String(it.code)] : null;
+          var mk = g ? (gi ? grpMark(gi) : '<span class="mk mk-ok">✓ ' + esc(L('было в наличии')) + '</span>') : '';
+          return '<div class="oit"><span class="n">' + esc(it.name) + '<br><span style="color:#999;font-size:11px;">' + esc(it.code) + '</span>' + mk + '</span><span class="q">' + esc(it.qty) + ' × ' + esc(it.price) + '<br><b>' + (sum ? sum.toFixed(2) : '—') + '</b></span></div>';
+        }).join('');
+        if (total) detHtml += '<div style="text-align:right;font-weight:800;font-size:14px;padding:8px 0 2px;">' + esc(L('Итого: {s} лей', { s: total.toFixed(2) })) + '</div>';
+      } else {
+        if (g) detHtml += grpItemsHtml(g);
+        var asked = ordDetAsked[o.id] || opsQueue().some(function (x) { return x.op === 'orderDetail' && x.id === o.id; });
+        if (!asked && typeof opPush === 'function' && can('orders')) { ordDetAsked[o.id] = 1; setTimeout(function () { opPush({ op: 'orderDetail', id: o.id }); }, 0); }
+        detHtml += '<div class="meta" style="padding:8px 0;">' + esc(L('Состав ещё не загружен с компьютера — появится после ближайшей синхронизации.')) + '</div>';
+      }
+      if (dl && dl.awb && (dl.sev === 'red' || dl.sev === 'warn')) {
+        detHtml += '<div class="meta" style="padding:8px 10px;margin:8px 0;border-radius:10px;background:' + (dl.sev === 'red' ? '#fdecec;color:#a11' : '#fff4e0;color:#8a5200') + ';">'
+          + esc(dl.sev === 'red' ? L('🚩 Красный флаг FAN — позвони клиенту, пока посылку не вернули.') : L('⚠ FAN сообщает о сложности с доставкой — проверь.'))
+          + (o.phone ? ' <a href="' + telHref(o.phone) + '">📞 ' + esc(o.phone) + '</a>' : '') + '</div>';
+      }
+      if (can('ordersEdit')) {
+      // Выбранный — по РОДНОМУ имени из админки (оно приходит в o.status), иначе по роли.
+      var stl = ordStList(), cur0 = String(o.status || '').toLowerCase().trim(), role0 = phRole(o.status);
+      var selV = (stl.filter(function (s) { return s.site.toLowerCase() === cur0; })[0] || stl.filter(function (s) { return role0 && s.role === role0; })[0] || {}).v;
+      var selSt = 'width:100%;margin-top:8px;font-family:inherit;font-size:16px;padding:10px;border-radius:10px;';
+      detHtml += '<label class="lbl">' + esc(L('Статус заказа')) + '</label>' +
+        '<select id="ost-' + o.id + '" onchange="ordStSel(' + o.id + ')" style="width:100%;font-family:inherit;font-size:16px;padding:10px;border:1px solid #ddd;border-radius:10px;background:#fafaf8;">' +
+        stl.map(function (s) { return '<option value="' + esc(s.v) + '"' + (s.v === selV ? ' selected' : '') + '>' + esc(s.t) + '</option>'; }).join('') +
+        '</select>' +
+        // Отмена — с причиной (v1.50), для «Недели в цифрах». Тот же список, что в панели.
+        '<select id="ocr-' + o.id + '" style="display:none;' + selSt + 'border:1px solid #f0c4be;background:#fff6f5;">' +
+        '<option value="">' + esc(L('— почему отменили? —')) + '</option>' + CR_REASONS.map(function (r) { return '<option value="' + r.k + '">' + esc(L(r.t)) + '</option>'; }).join('') +
+        '</select>' +
+        // v1.53: «Перезвонить позже / Не ответил» — что именно было (для напоминаний и статистики).
+        '<select id="ocbo-' + o.id + '" onchange="ordStSel(' + o.id + ')" style="display:none;' + selSt + 'border:1px solid #f3c9a8;background:#fff8f2;">' +
+        '<option value="">' + esc(L('— что было? —')) + '</option><option value="noanswer">' + esc(L('📵 Не ответил — набрать снова через час')) + '</option><option value="later">' + esc(L('⏰ Перезвонить позже — клиент попросил')) + '</option>' +
+        '</select>' +
+        '<select id="ocbt-' + o.id + '" style="display:none;' + selSt + 'border:1px solid #d8ccff;background:#f7f4ff;">' +
+        ['1h', '2h', '17', 'tom10'].map(function (p) { return '<option value="' + p + '"' + (p === '2h' ? ' selected' : '') + '>⏰ ' + esc(p === '2h' ? L('+2 ч') : fdPresetLabel(p)) + '</option>'; }).join('') +
+        '</select>' +
+        '<button class="ghost" onclick="ordApplyStatus(' + o.id + ')" style="margin-top:8px;">' + esc(L('Сменить статус')) + '</button>';
+      if (role0 === 'callback' && !cbSt && !pend[o.id]) {
+        detHtml += '<label class="lbl">' + esc(L('📞 Что было по звонку?')) + '</label><div class="cbchips">'
+          + '<button class="chip" onclick="ordCbOut(' + o.id + ',\'noanswer\')">' + esc(L('📵 Не ответил')) + '</button>'
+          + '<button class="chip" onclick="ordCbOut(' + o.id + ',\'later\')">' + esc(L('⏰ Перезвонить позже')) + '</button></div>';
+      }
+      if (role0 === 'new' || role0 === 'callback') {
+        detHtml += '<label class="lbl">' + esc(L('⏰ Перезвонить (напомнит компьютер)')) + '</label><div class="cbchips">'
+          + ['1h', '17', 'tom10'].map(function (p) { return '<button class="chip" onclick="ordCb(' + o.id + ',\'' + p + '\')">' + esc(fdPresetLabel(p)) + '</button>'; }).join('')
+          + (oc.at ? '<button class="chip" onclick="ordCb(' + o.id + ',\'off\')">✕</button>' : '') + '</div>';
+      }
+      }
+    }
+    return '<div class="card' + (pend[o.id] ? ' pending' : '') + '" >' + stBadge + cbBadge +
+      '<div class="ttl" onclick="ordToggle(' + o.id + ')">#' + esc(String(o.id)) + ' · ' + esc(o.name || o.type || '') + ' <span style="color:#bbb;font-weight:400;">' + (open ? '▲' : '▼') + '</span></div>' +
+      (meta.length ? '<div class="meta">' + meta.join(' &nbsp;·&nbsp; ') + '</div>' : '') + detHtml + '</div>';
+  }
+  // Список под полем поиска — отдельно: при наборе в поиске обновляется только он, а само поле
+  // не пересоздаётся (иначе iPhone после каждой буквы сбрасывает клавиатуру).
+  function ordListHtml() {
     var all = ordAll(), list = (state && state.orders) || [];
     var pend = ordPendStatus();
     var dAll = (state && state.deliv) || {};
-    var fanN = all.filter(function (o) { return ordFanAlarm(dAll[o.id]); }).length;
-    var grpIds = Object.keys((state && state.grp) || {}).filter(function (id) { return ordGrp(id); });
-    var newN = all.filter(function (o) { return (pend[o.id] ? ordRoleOfValue(pend[o.id]) : phRole(o.status)) === 'new'; }).length;   // сколько в списке «Оформленные»
-    var chip = function (f, t) { return '<button class="chip' + (ordFilter === f ? ' on' : '') + '" onclick="ordFilterSet(\'' + f + '\')">' + t + '</button>'; };
-    var chips = '<div class="chips">' + chip('all', esc(L('Все'))) + chip('new', esc(L('Оформленные')) + (newN ? ' (' + newN + ')' : '')) + chip('cb', esc(L('Перезвонить')))
-      + ((grpIds.length || ordFilter === 'grp') ? chip('grp', '🧩 ' + esc(L('Дособрать')) + ' (' + grpIds.length + ')') : '')
-      + ((fanN || ordFilter === 'fan') ? chip('fan', '🚩 ' + esc(L('Посылки FAN')) + ' (' + fanN + ')') : '') + '</div>';
     var q = String(ordQ || '').toLowerCase().trim(), qd = q.replace(/\D/g, '');
-    var srch = (all.length > list.length || q || ordSearchOpen) ? '<input class="search" id="ordQ" placeholder="' + esc(L('🔍 Номер, имя или телефон — по всем заказам')) + '" value="' + esc(ordQ) + '" oninput="ordSearch(this.value)">' : '';
     var shown = all.filter(function (o) {
       if (q) {
         var hit = String(o.id).indexOf(q) === 0 || String(o.name || '').toLowerCase().indexOf(q) >= 0 || (qd.length >= 3 && String(o.phone || '').replace(/\D/g, '').indexOf(qd) >= 0);
@@ -1791,112 +1923,46 @@
     });
     if (ordFilter === 'all' && !q) shown = all.slice(0, Math.max(ordShow, list.length));
     if (ordFilter === 'fan') shown.sort(function (a, b) { return (dAll[b.id].sev === 'red' ? 1 : 0) - (dAll[a.id].sev === 'red' ? 1 : 0); });
-    var head = chips + srch + ((ordFilter === 'all' && !q) ? ordTodayHtml() : '');
+    var today = (ordFilter === 'all' && !q) ? ordTodayHtml() : '';
     if (!shown.length) {
-      box.innerHTML = head + (ordFilter === 'fan' ? '<div class="empty">' + esc(L('✅ С посылками FAN всё спокойно')) + '</div>'
+      return today + (ordFilter === 'fan' ? '<div class="empty">' + esc(L('✅ С посылками FAN всё спокойно')) + '</div>'
         : q ? '<div class="empty">' + esc(L('Ничего не найдено')) + (arcData ? '' : '<br><span style="font-size:11px;">' + esc(L('архив всех заказов ещё загружается…')) + '</span>') + '</div>'
         : '<div class="empty">' + esc(L('Заказов нет')) + '<br><span style="font-size:11px;">' + esc(L('(компьютер должен быть залогинен в админку)')) + '</span></div>');
-      return;
     }
     var limited = shown.slice(0, ordFilter === 'all' && !q ? shown.length : ordShow);
     var details = (state && state.orderDetails) || {};
-    box.innerHTML = head + limited.map(function (o) {
-      var meta = [];
-      if (o.phone) meta.push('📞 <a href="' + telHref(o.phone) + '">' + esc(o.phone) + '</a>');
-      if (o.price) meta.push('💰 ' + esc(o.price) + ' ' + esc(L('лей')));
-      if (o.date) meta.push(esc(o.date));
-      // Роль статуса — по названию из админки (и новые, и прежние подписи).
-      var role = pend[o.id] ? ordRoleOfValue(pend[o.id]) : phRole(o.status);
-      var oc = fdOrderCb(o.id), now0 = Date.now(), cbSt = ordCbSt(oc);
-      // У «Перезвонить позже / Не ответил» показываем, что было на самом деле.
-      var stTxt = pend[o.id] ? (statusText(pend[o.id]) + ' · ' + L('отправляется…'))
-        : (role === 'callback' && cbSt === 'noanswer') ? (L('📵 Не ответил') + (oc.miss ? ' ×' + oc.miss : ''))
-        : (role === 'callback' && cbSt === 'later') ? L('⏰ Перезвонить позже')
-        : (o.status || '');
-      var cbBadge = (oc.at ? '<span class="badge ' + (oc.at <= now0 ? 'bg-out' : 'bg-o-later') + '">⏰ ' + esc(fdWhen(oc.at, now0)) + '</span>' : '')
-        + (oc.miss >= 2 && role !== 'callback' ? '<span class="badge bg-o-noans">📵 ×' + oc.miss + '</span>' : '');
-      var dl = dAll[o.id];
-      if (dl && dl.awb) meta.push('📦 ' + esc(dl.awb) + (dl.auto ? ' 🔗' : ''));
-      cbBadge += ordFanBadge(dl);
-      // v1.50: проблема с посылкой / расхождение наложенного (считает компьютер), причина отмены.
-      if (dl && dl.prob) cbBadge += '<span class="badge bg-out">🚚 ' + esc(dl.prob) + '</span>';
-      if (dl && dl.cod) cbBadge += '<span class="badge bg-out">💰 ' + esc(dl.cod) + '</span>';
-      // v1.62: «дособрать» — сколько позиций уже есть
-      var g = ordGrp(o.id);
-      if (g) cbBadge += '<span class="badge ' + (g.ready === g.total ? 'bg-in' : 'bg-grp') + '">🧩 ' + esc(g.ready === g.total ? L('Укомплектован — можно звонить') : L('Дособрать: не хватает {n} из {t}', { n: g.total - g.ready, t: g.total })) + '</span>';
-      var crTxt = ((state && state.cr) || {})[o.id];
-      if (crTxt) meta.push('✖ ' + esc(crTxt));
-      var stCls = role === 'callback' ? (cbSt === 'later' ? 'bg-o-later' : 'bg-o-noans') : (ROLE_CLS[role] || 'bg-done');
-      var stBadge = '<span class="badge ' + stCls + '">' + esc(stTxt) + '</span>';
-      var open = !!ordOpen[o.id];
-      var detHtml = '';
-      if (open) {
-        var d = details[o.id];
-        if (d && d.items && d.items.length) {
-          var total = 0, gmap = {};
-          if (g) g.items.forEach(function (gi) { if (gi.code) gmap[String(gi.code)] = gi; });
-          detHtml += (d.user && d.user.address ? '<div class="meta">📍 ' + esc(d.user.address) + '</div>' : '');
-          if (g) detHtml += '<div class="meta" style="color:#a61e4d;font-weight:800;">🧩 ' + esc(L('Состав заказа: что есть и чего не хватает')) + '</div>';
-          detHtml += d.items.map(function (it) {
-            var sum = num(it.price) * num(it.qty); total += sum;
-            var gi = g ? gmap[String(it.code)] : null;
-            var mk = g ? (gi ? grpMark(gi) : '<span class="mk mk-ok">✓ ' + esc(L('было в наличии')) + '</span>') : '';
-            return '<div class="oit"><span class="n">' + esc(it.name) + '<br><span style="color:#999;font-size:11px;">' + esc(it.code) + '</span>' + mk + '</span><span class="q">' + esc(it.qty) + ' × ' + esc(it.price) + '<br><b>' + (sum ? sum.toFixed(2) : '—') + '</b></span></div>';
-          }).join('');
-          if (total) detHtml += '<div style="text-align:right;font-weight:800;font-size:14px;padding:8px 0 2px;">' + esc(L('Итого: {s} лей', { s: total.toFixed(2) })) + '</div>';
-        } else {
-          if (g) detHtml += grpItemsHtml(g);
-          var asked = ordDetAsked[o.id] || opsQueue().some(function (x) { return x.op === 'orderDetail' && x.id === o.id; });
-          if (!asked && typeof opPush === 'function' && can('orders')) { ordDetAsked[o.id] = 1; setTimeout(function () { opPush({ op: 'orderDetail', id: o.id }); }, 0); }
-          detHtml += '<div class="meta" style="padding:8px 0;">' + esc(L('Состав ещё не загружен с компьютера — появится после ближайшей синхронизации.')) + '</div>';
-        }
-        if (dl && dl.awb && (dl.sev === 'red' || dl.sev === 'warn')) {
-          detHtml += '<div class="meta" style="padding:8px 10px;margin:8px 0;border-radius:10px;background:' + (dl.sev === 'red' ? '#fdecec;color:#a11' : '#fff4e0;color:#8a5200') + ';">'
-            + esc(dl.sev === 'red' ? L('🚩 Красный флаг FAN — позвони клиенту, пока посылку не вернули.') : L('⚠ FAN сообщает о сложности с доставкой — проверь.'))
-            + (o.phone ? ' <a href="' + telHref(o.phone) + '">📞 ' + esc(o.phone) + '</a>' : '') + '</div>';
-        }
-        if (can('ordersEdit')) {
-        // Выбранный — по РОДНОМУ имени из админки (оно приходит в o.status), иначе по роли.
-        var stl = ordStList(), cur0 = String(o.status || '').toLowerCase().trim(), role0 = phRole(o.status);
-        var selV = (stl.filter(function (s) { return s.site.toLowerCase() === cur0; })[0] || stl.filter(function (s) { return role0 && s.role === role0; })[0] || {}).v;
-        var selSt = 'width:100%;margin-top:8px;font-family:inherit;font-size:16px;padding:10px;border-radius:10px;';
-        detHtml += '<label class="lbl">' + esc(L('Статус заказа')) + '</label>' +
-          '<select id="ost-' + o.id + '" onchange="ordStSel(' + o.id + ')" style="width:100%;font-family:inherit;font-size:16px;padding:10px;border:1px solid #ddd;border-radius:10px;background:#fafaf8;">' +
-          stl.map(function (s) { return '<option value="' + esc(s.v) + '"' + (s.v === selV ? ' selected' : '') + '>' + esc(s.t) + '</option>'; }).join('') +
-          '</select>' +
-          // Отмена — с причиной (v1.50), для «Недели в цифрах». Тот же список, что в панели.
-          '<select id="ocr-' + o.id + '" style="display:none;' + selSt + 'border:1px solid #f0c4be;background:#fff6f5;">' +
-          '<option value="">' + esc(L('— почему отменили? —')) + '</option>' + CR_REASONS.map(function (r) { return '<option value="' + r.k + '">' + esc(L(r.t)) + '</option>'; }).join('') +
-          '</select>' +
-          // v1.53: «Перезвонить позже / Не ответил» — что именно было (для напоминаний и статистики).
-          '<select id="ocbo-' + o.id + '" onchange="ordStSel(' + o.id + ')" style="display:none;' + selSt + 'border:1px solid #f3c9a8;background:#fff8f2;">' +
-          '<option value="">' + esc(L('— что было? —')) + '</option><option value="noanswer">' + esc(L('📵 Не ответил — набрать снова через час')) + '</option><option value="later">' + esc(L('⏰ Перезвонить позже — клиент попросил')) + '</option>' +
-          '</select>' +
-          '<select id="ocbt-' + o.id + '" style="display:none;' + selSt + 'border:1px solid #d8ccff;background:#f7f4ff;">' +
-          ['1h', '2h', '17', 'tom10'].map(function (p) { return '<option value="' + p + '"' + (p === '2h' ? ' selected' : '') + '>⏰ ' + esc(p === '2h' ? L('+2 ч') : fdPresetLabel(p)) + '</option>'; }).join('') +
-          '</select>' +
-          '<button class="ghost" onclick="ordApplyStatus(' + o.id + ')" style="margin-top:8px;">' + esc(L('Сменить статус')) + '</button>';
-        if (role0 === 'callback' && !cbSt && !pend[o.id]) {
-          detHtml += '<label class="lbl">' + esc(L('📞 Что было по звонку?')) + '</label><div class="cbchips">'
-            + '<button class="chip" onclick="ordCbOut(' + o.id + ',\'noanswer\')">' + esc(L('📵 Не ответил')) + '</button>'
-            + '<button class="chip" onclick="ordCbOut(' + o.id + ',\'later\')">' + esc(L('⏰ Перезвонить позже')) + '</button></div>';
-        }
-        if (role0 === 'new' || role0 === 'callback') {
-          detHtml += '<label class="lbl">' + esc(L('⏰ Перезвонить (напомнит компьютер)')) + '</label><div class="cbchips">'
-            + ['1h', '17', 'tom10'].map(function (p) { return '<button class="chip" onclick="ordCb(' + o.id + ',\'' + p + '\')">' + esc(fdPresetLabel(p)) + '</button>'; }).join('')
-            + (oc.at ? '<button class="chip" onclick="ordCb(' + o.id + ',\'off\')">✕</button>' : '') + '</div>';
-        }
-        }
-      }
-      return '<div class="card' + (pend[o.id] ? ' pending' : '') + '" >' + stBadge + cbBadge +
-        '<div class="ttl" onclick="ordToggle(' + o.id + ')">#' + esc(String(o.id)) + ' · ' + esc(o.name || o.type || '') + ' <span style="color:#bbb;font-weight:400;">' + (open ? '▲' : '▼') + '</span></div>' +
-        (meta.length ? '<div class="meta">' + meta.join(' &nbsp;·&nbsp; ') + '</div>' : '') + detHtml + '</div>';
-    }).join('')
+    return today + limited.map(function (o) { return ordCardHtml(o, pend, dAll, details); }).join('')
       + ((ordFilter === 'all' && !q && all.length > shown.length) || (shown.length > limited.length)
         ? '<div class="more"><button onclick="ordMore()">' + esc(L('Показать ещё')) + ' · ' + esc(L('всего {n}', { n: (ordFilter === 'all' && !q) ? all.length : shown.length })) + '</button></div>' : '')
       + ((ordFilter === 'all' && !q && state && state.arc && !arcData) ? '<div class="note" style="text-align:center;">' + esc(L('архив всех заказов ещё загружается…')) + '</div>' : '');
   }
-  window.ordFilterSet = function (f) { ordFilter = f; ordShow = 30; render(); };
+  function renderOrders(box) {
+    if (state && state.arc && typeof arcLoad === 'function') arcLoad();
+    // экран ОДНОГО заказа: раскрыт, с составом и «чего не хватает»
+    if (ordFocus) {
+      var fo = ordFind(ordFocus);
+      if (!fo || fo.id == null) fo = { id: ordFocus, name: '', status: '', arc: 1 };
+      ordOpen[fo.id] = true;
+      box.innerHTML = '<div class="chips"><button class="chip on" onclick="ordFocusOff()">← ' + esc(L('Все заказы')) + '</button></div>'
+        + ordCardHtml(fo, ordPendStatus(), (state && state.deliv) || {}, (state && state.orderDetails) || {})
+        + (fo.name || fo.phone ? '' : '<div class="note" style="text-align:center;">' + esc(L('Данные заказа подтягиваются из архива…')) + '</div>');
+      return;
+    }
+    var all = ordAll(), list = (state && state.orders) || [];
+    var pend = ordPendStatus();
+    var dAll = (state && state.deliv) || {};
+    var fanN = all.filter(function (o) { return ordFanAlarm(dAll[o.id]); }).length;
+    var grpIds = Object.keys((state && state.grp) || {}).filter(function (id) { return ordGrp(id); });
+    var newN = all.filter(function (o) { return (pend[o.id] ? ordRoleOfValue(pend[o.id]) : phRole(o.status)) === 'new'; }).length;   // сколько в списке «Оформленные»
+    var chip = function (f, t) { return '<button class="chip' + (ordFilter === f ? ' on' : '') + '" onclick="ordFilterSet(\'' + f + '\')">' + t + '</button>'; };
+    var chips = '<div class="chips">' + chip('all', esc(L('Все'))) + chip('new', esc(L('Оформленные')) + (newN ? ' (' + newN + ')' : '')) + chip('cb', esc(L('Перезвонить')))
+      + ((grpIds.length || ordFilter === 'grp') ? chip('grp', '🧩 ' + esc(L('Дособрать')) + ' (' + grpIds.length + ')') : '')
+      + ((fanN || ordFilter === 'fan') ? chip('fan', '🚩 ' + esc(L('Посылки FAN')) + ' (' + fanN + ')') : '') + '</div>';
+    var q = String(ordQ || '').trim();
+    var srch = (all.length > list.length || q || ordSearchOpen) ? '<input class="search" id="ordQ" type="search" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="' + esc(L('🔍 Номер, имя или телефон — по всем заказам')) + '" value="' + esc(ordQ) + '" oninput="ordSearch(this.value)">' : '';
+    box.innerHTML = chips + srch + '<div id="ordList">' + ordListHtml() + '</div>';
+  }
+  window.ordFocusOff = function () { ordFocus = 0; render(); try { window.scrollTo(0, 0); } catch (e) {} };  window.ordFilterSet = function (f) { ordFilter = f; ordShow = 30; ordFocus = 0; render(); };
   window.ordToggle = function (id) { ordOpen[id] = !ordOpen[id]; render(); };
   var CR_REASONS = [
     { k: 'nostock', t: 'Нет в наличии' }, { k: 'price', t: 'Дорого' }, { k: 'delivery', t: 'Доставка (цена или срок)' },
@@ -2195,7 +2261,14 @@
     box.innerHTML = h;
   }
   window.fdFilterSet = function (f) { fdFilter = f; try { localStorage.setItem('vp_fd_filter', f); } catch (e) {} render(); };
-  window.fdOrder = function (id) { if (!id) return; ordOpen[id] = true; ordFilter = 'all'; ordQ = ''; if (!ordAll().some(function (o) { return o.id === id; })) { ordQ = String(id); } setTab('orders'); };
+  // v1.63.1: открыть САМ заказ (раскрытым, с составом), а не просто список заказов
+  window.fdOrder = function (id) {
+    id = parseInt(id, 10) || 0; if (!id) return;
+    ordFocus = id; ordOpen[id] = true; ordQ = '';
+    var same = tab === 'orders';
+    setTab('orders');
+    if (same) { try { window.scrollTo(0, 0); } catch (e) {} }
+  };
   // Позвонил — запоминаем: вернёшься в приложение, и лист с итогом звонка откроется сам.
   window.fdCalled = function (id) { try { localStorage.setItem('vp_lastcall', JSON.stringify({ id: id, at: Date.now() })); } catch (e) {} };
   function fdStockSms(taskId) {
@@ -2298,7 +2371,8 @@
 
   /* ── WEIGHTS ── */
   var wtsQuery = '';
-  function renderWeights(box) {
+  // v1.63.1: список — отдельно от поля поиска: набор не пересоздаёт поле (клавиатура iPhone не сбрасывается)
+  function wtsListHtml() {
     var db = (state && state.weights) || [];
     var q = wtsQuery.toLowerCase().trim();
     var list = !q ? db.slice() : db.filter(function (w) {
@@ -2306,19 +2380,19 @@
     });
     list.sort(function (a, b) { return String(a.code).localeCompare(String(b.code), undefined, { numeric: true }); });
     var canW = can('weights');
-    box.innerHTML = '<input class="search" id="wq" placeholder="' + esc(L('🔍 Код или название…')) + '" value="' + esc(wtsQuery) + '" oninput="wtsSearch(this.value)">' +
-      '<div class="sec">' + esc(L('База весов — {n}', { n: db.length })) + (q ? (' · ' + esc(L('найдено {n}', { n: list.length }))) : '') + '</div>' +
+    return '<div class="sec">' + esc(L('База весов — {n}', { n: db.length })) + (q ? (' · ' + esc(L('найдено {n}', { n: list.length }))) : '') + '</div>' +
       (list.length ? list.slice(0, 100).map(function (w) {
         var dims = (w.length || w.width || w.height) ? ('<br><span style="font-size:10.5px;color:#aaa;">📐 ' + esc(String(w.length || '—')) + '×' + esc(String(w.width || '—')) + '×' + esc(String(w.height || '—')) + ' ' + esc(L('см')) + '</span>') : '';
         var pend = opsQueue().some(function (o) { return o.op === 'setWeight' && String(o.code) === String(w.code); });
         return '<div class="wrow"><span class="wc">' + esc(w.code) + '</span><span class="wn">' + esc(w.name || '') + dims + '</span><span class="ww">' + esc(String(w.weight)) + ' ' + esc(L('кг')) + (pend ? '…' : '') + '</span>'
           + (canW ? '<button class="chip" style="margin:0;" onclick="wtsEditW(\'' + esc(String(w.code)) + '\')">✏️</button>' : '') + '</div>';
       }).join('') : '<div class="empty">' + esc(L('Ничего не найдено')) + '</div>');
-    var el = document.getElementById('wq');
-    if (el && q) { el.focus(); try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {} }
   }
-  window.wtsSearch = function (v) { wtsQuery = v; render(); };
-  window.wtsEditW = function (code) {
+  function renderWeights(box) {
+    box.innerHTML = '<input class="search" id="wq" type="search" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="' + esc(L('🔍 Код или название…')) + '" value="' + esc(wtsQuery) + '" oninput="wtsSearch(this.value)">'
+      + '<div id="wList">' + wtsListHtml() + '</div>';
+  }
+  window.wtsSearch = function (v) { wtsQuery = v; var l = document.getElementById('wList'); if (l && tab === 'weights') l.innerHTML = wtsListHtml(); else render(); };  window.wtsEditW = function (code) {
     var w = ((state && state.weights) || []).find(function (x) { return x && String(x.code) === String(code); });
     var v = prompt(L('Вес для {c}, кг:', { c: code }), w ? String(w.weight) : '');
     if (v == null) return;
@@ -2356,9 +2430,6 @@
   function fmt(n) { return (Math.round(n * 100) / 100).toFixed(2).replace(/\.00$/, ''); }
   function renderFan(box) {
     var totalKg = fanWeights.reduce(function (s, r) { return s + r.kg; }, 0);
-    var db = (state && state.weights) || [];
-    var q = fanCodeQ.trim().toLowerCase();
-    var found = q ? db.filter(function (w) { return String(w.code || '').toLowerCase().indexOf(q) >= 0; }).slice(0, 5) : [];
     var kg = esc(L('кг'));
     var h = '<div class="sec">' + esc(L('Груз')) + '</div>';
     h += fanWeights.map(function (r, i) {
@@ -2367,10 +2438,10 @@
     h += '<div class="row" style="margin-top:6px;">' +
       '<input class="search" style="margin:0;flex:1;" id="fanKg" inputmode="decimal" placeholder="' + esc(L('Вес, кг (напр. 3.5)')) + '">' +
       '<button class="chip on" style="margin:0;" onclick="fanAddKg()">+ ' + kg + '</button></div>';
-    h += '<div class="row"><input class="search" style="margin:0;flex:1;" id="fanCode" placeholder="' + esc(L('…или код из базы весов')) + '" value="' + esc(fanCodeQ) + '" oninput="fanCodeSearch(this.value)"></div>';
-    if (found.length) h += found.map(function (w) {
-      return '<div class="wrow" onclick="fanAddCode(\'' + esc(w.code) + '\')"><span class="wc">' + esc(w.code) + '</span><span class="wn">' + esc(w.name || '') + '</span><span class="ww">+' + esc(String(w.weight)) + ' ' + kg + '</span></div>';
-    }).join('');
+    // v1.63.1: цифровая клавиатура; при наборе обновляется только список под полем (#fanFound),
+    // само поле не пересоздаётся — иначе iPhone после каждой цифры переключал клавиатуру на буквы
+    h += '<div class="row"><input class="search" style="margin:0;flex:1;" id="fanCode" type="text" inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="' + esc(L('…или код из базы весов')) + '" value="' + esc(fanCodeQ) + '" oninput="fanCodeSearch(this.value)"></div>';
+    h += '<div id="fanFound">' + fanFoundHtml() + '</div>';
     var c = fanCompute(totalKg);
     h += '<div class="sec">' + esc(L('Расчёт (вес {a} кг → к оплате {b} кг)', { a: fmt(totalKg), b: c.rounded })) + '</div>';
     h += '<div class="card">' +
@@ -2389,7 +2460,17 @@
     if (v <= 0) { toast(L('⚠ Введи вес в кг')); return; }
     fanWeights.push({ label: L('Вес вручную'), kg: v }); render();
   };
-  window.fanCodeSearch = function (v) { fanCodeQ = v; render(); var el = document.getElementById('fanCode'); if (el) { el.focus(); try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {} } };
+  // найденные в базе весов коды (запятая с цифровой клавиатуры = точка: 81,1039 → 81.1039)
+  function fanFoundHtml() {
+    var db = (state && state.weights) || [], kg = esc(L('кг'));
+    var q = fanCodeQ.trim().toLowerCase().replace(/,/g, '.');
+    var found = q ? db.filter(function (w) { return String(w.code || '').toLowerCase().indexOf(q) >= 0; }).slice(0, 8) : [];
+    if (q && !found.length) return '<div class="note">' + esc(L('В базе весов такого кода нет')) + '</div>';
+    return found.map(function (w) {
+      return '<div class="wrow" onclick="fanAddCode(\'' + esc(w.code) + '\')"><span class="wc">' + esc(w.code) + '</span><span class="wn">' + esc(w.name || '') + '</span><span class="ww">+' + esc(String(w.weight)) + ' ' + kg + '</span></div>';
+    }).join('');
+  }
+  window.fanCodeSearch = function (v) { fanCodeQ = v; var f = document.getElementById('fanFound'); if (f && tab === 'fan') f.innerHTML = fanFoundHtml(); else render(); };
   window.fanAddCode = function (code) {
     var db = (state && state.weights) || [];
     var w = db.find(function (x) { return String(x.code) === code; });
@@ -2744,6 +2825,8 @@
     if (ban) ban.style.display = (state.appVer && state.appVer !== PAGE_VER) ? 'block' : 'none';
     // компьютер не знает о подписке (сбросили на нём) — дошлём
     if (_pushSub && pushPref().on && state.me && !state.me.push) devWrite().catch(function () {});
+    // человек печатает в поле (поиск, код) — не пересоздаём экран: обновим, когда уйдёт из поля
+    if (typingNow()) { _renderLater = true; softRender(); navPaint(); bellPaint(); return; }
     setTab(tab);
   }
   var _refBusy = false, _lastRef = 0;
@@ -2867,7 +2950,27 @@
     document.getElementById('cfgSheet').style.display = 'block';
     cfgPaint();
   };
-  window.closeSheets = function () { ['sheetBg', 'editSheet', 'cfgSheet', 'feedSheet', 'moreSheet', 'bellSheet'].forEach(function (i) { var el = document.getElementById(i); if (el) el.style.display = 'none'; }); fdSel = null; };
+  window.closeSheets = function () { ['sheetBg', 'editSheet', 'cfgSheet', 'feedSheet', 'moreSheet', 'bellSheet'].forEach(function (i) { var el = document.getElementById(i); if (el) { el.style.display = 'none'; el.style.translate = ''; } }); fdSel = null; };
+  /* v1.63.1: у каждого всплывающего окна — шапка с «ручкой» и кнопкой ✕ (она не уезжает при
+     прокрутке окна); окно можно смахнуть вниз за шапку. Раньше закрыть можно было только
+     тапом мимо окна, а на iPhone над длинным окном почти не оставалось места. */
+  function sheetChrome() {
+    Array.prototype.forEach.call(document.querySelectorAll('.sheet'), function (sh) {
+      if (sh.querySelector('.sheet-hd')) return;
+      var hd = document.createElement('div');
+      hd.className = 'sheet-hd';
+      hd.innerHTML = '<span class="grab"></span><button type="button" class="sx" aria-label="close" onclick="closeSheets()">✕</button>';
+      sh.insertBefore(hd, sh.firstChild);
+      var y0 = null, dy = 0;
+      hd.addEventListener('touchstart', function (e) { if (e.target.closest && e.target.closest('.sx')) return; y0 = e.touches[0].clientY; dy = 0; sh.style.transition = 'none'; }, { passive: true });
+      hd.addEventListener('touchmove', function (e) { if (y0 == null) return; dy = Math.max(0, e.touches[0].clientY - y0); sh.style.translate = dy ? ('0 ' + dy + 'px') : ''; }, { passive: true });
+      hd.addEventListener('touchend', function () {
+        if (y0 == null) return;
+        y0 = null; sh.style.transition = 'translate .18s ease-out';
+        if (dy > 70) closeSheets(); else sh.style.translate = '';
+      }, { passive: true });
+    });
+  }
 
   /* ── запуск: ссылка → ключ устройства → имя → визит + приветствие → данные ── */
   var _pollT = null;
@@ -2890,6 +2993,7 @@
     }, 5000);
   }
   function boot() {
+    sheetChrome();
     applyStatic();
     loadCfg();
     if (!cfg) { render(); return; }
