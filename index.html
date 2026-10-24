@@ -262,6 +262,39 @@
   .gate h2 { color: var(--ink); }
   .dcode { border-color: #c5cfe6; color: var(--ink); }
   @media (min-width: 560px) { .gcards { grid-template-columns: 1fr 1fr; } }
+  /* ── v1.63.2 ── */
+  /* открыта клавиатура — нижнее меню и «+» прячем (iPhone иначе таскает их над клавиатурой поверх списка).
+     --kbfix: на сколько опустить всё, что прижато к низу экрана, если iOS 26 после закрытия клавиатуры
+     оставил меню «висеть» над краем (WebKit 297779). Ставит скрипт — только когда зазор измерен. */
+  .bnav, .fab { transition: opacity .18s, visibility .18s; }
+  html.kb .bnav, html.kb .fab { opacity: 0; visibility: hidden; pointer-events: none; }
+  .bnav { bottom: calc(0px - var(--kbfix, 0px)); }
+  .fab { bottom: calc(var(--nav-h) + var(--safe-b) + 16px - var(--kbfix, 0px)); }
+  .toast { bottom: calc(var(--nav-h) + var(--safe-b) + 20px - var(--kbfix, 0px)); }
+  .sheet, .sheet-bg { bottom: calc(0px - var(--kbfix, 0px)); }
+  /* FAN: список грузов, коробки (объём), расчёт */
+  .fhint { margin: -2px 4px 10px; }
+  .fsum { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12.5px; font-weight: 700; color: #5a6684; margin: 2px 2px 6px; }
+  .fsum button { border: none; background: none; color: #1f52e0; font-family: inherit; font-size: 12.5px; font-weight: 800; padding: 6px 0 6px 10px; }
+  .wrow .fdm { display: block; font-size: 11.5px; color: #8a93ad; margin-top: 2px; white-space: normal; }
+  #fanCalc .frow { gap: 10px; }
+  #fanCalc .frow b { flex-shrink: 0; }
+  .fbox { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid #f0f2f7; }
+  .fdims { display: flex; align-items: center; gap: 5px; }
+  .fdims .search { margin: 0; flex: 1 1 0; min-width: 0; padding: 11px 4px; text-align: center; }
+  .fx { color: #8a93ad; font-weight: 800; flex-shrink: 0; }
+  .fcm { color: #8a93ad; font-size: 12.5px; font-weight: 700; flex-shrink: 0; }
+  .fdel { flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; border: none; background: #eef2fb; color: #233a74; font-size: 13px; font-weight: 800; padding: 0; font-family: inherit; }
+  .fbv { font-size: 12.5px; color: #8a93ad; margin: 6px 2px 0; }
+  .fbv b { color: var(--ink); }
+  .fvadd { align-items: center; margin-top: 2px; }
+  .fvadd .chip { margin: 0; flex-shrink: 0; }
+  .fvor { font-size: 12.5px; color: #8a93ad; flex-shrink: 0; }
+  .fvadd .search { margin: 0; flex: 1; min-width: 0; }
+  #fanBoxes.off { opacity: .4; }
+  .frow .fsrc { color: #8a93ad; font-size: 12px; }
+  .frow.fpay { font-weight: 800; }
+  .frow.fpay.vol { color: #c2410c; }
 </style>
 </head>
 <body>
@@ -350,7 +383,7 @@
 <script>
 (function () {
   'use strict';
-  var PAGE_VER = '1.63.1';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
+  var PAGE_VER = '1.63.2';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
   var API = 'https://api.github.com';
   /* ── v1.62: язык приложения (RU / RO). L('русский текст', {n: 5}) — перевод по
      словарю RO (ключ — сам русский текст), {n} — подстановки. Нет в словаре — по-русски. ── */
@@ -613,7 +646,6 @@
     'облако {n}': 'cloud {n}',
     'облако не найдено — нужна новая ссылка': 'cloud-ul nu a fost găsit — trebuie un link nou',
     'обнови страницу через минуту': 'actualizează pagina peste un minut',
-    'Объёмный вес считается только на компьютере.': 'Greutatea volumetrică se calculează doar pe calculator.',
     'Обычный': 'Normală',
     'Отказался': 'A refuzat',
     'Отметить в заявке «✉ СМС» с временем': 'Marchează în cerere «✉ SMS» cu ora',
@@ -660,7 +692,6 @@
     'пусто = уведомить при появлении': 'gol = anunță la apariție',
     'Раз в день': 'O dată pe zi',
     'Разрешить, закрыть доступ и выбрать права — в расширении на компьютере.': 'Permiterea, închiderea accesului și drepturile — în extensie, pe calculator.',
-    'Расчёт (вес {a} кг → к оплате {b} кг)': 'Calcul (greutate {a} kg → de plată {b} kg)',
     'Результат ({t})': 'Rezultat ({t})',
     'с {t}': 'din {t}',
     'Сверхвес {n} кг × {r}': 'Supragreutate {n} kg × {r}',
@@ -813,7 +844,32 @@
     'Сегодня — {n}': 'Azi — {n}',
     'Дел на сегодня нет — всё спокойно 🎉': 'Azi nu sunt sarcini — totul e liniștit 🎉',
     'Показать все': 'Arată tot',
-    'В нижнем меню (до 3, остальное — в «Ещё»)': 'În meniul de jos (până la 3, restul — în «Mai mult»)'
+    'В нижнем меню (до 3, остальное — в «Ещё»)': 'În meniul de jos (până la 3, restul — în «Mai mult»)',
+    // v1.63.2: FAN — точка в коде, объёмный вес
+    'Точку в коде ставит «,» на цифровой клавиатуре: 81,1039 → 81.1039': 'Punctul din cod îl pune «,» de pe tastatura numerică: 81,1039 → 81.1039',
+    'Добавлено: {n} · {w} кг': 'Adăugate: {n} · {w} kg',
+    'Очистить': 'Golește',
+    'Очистить список грузов?': 'Golești lista de încărcături?',
+    'Объём — по желанию': 'Volum — opțional',
+    'коробка': 'cutie',
+    'или': 'sau',
+    'объём, м³': 'volum, m³',
+    'Объёмный вес = Д × Ш × В (см) / 6000 — как на компьютере. К оплате берётся больший: физический или объёмный.': 'Greutatea volumetrică = L × l × H (cm) / 6000 — ca pe calculator. Se plătește cea mai mare: fizică sau volumetrică.',
+    'Длина': 'Lung.',
+    'Ширина': 'Lăț.',
+    'Высота': 'Înălț.',
+    'объёмный вес': 'greutate volumetrică',
+    'Д × Ш × В коробки, см': 'L × l × H cutie, cm',
+    'Расчёт': 'Calcul',
+    'Физический вес': 'Greutate fizică',
+    'Объёмный вес': 'Greutate volumetrică',
+    '{v} м³': '{v} m³',
+    'коробок: {n}': 'cutii: {n}',
+    'по коробке': 'după cutie',
+    'габариты из базы весов': 'dimensiuni din baza de greutăți',
+    'К оплате — по объёмному весу': 'De plată — după greutatea volumetrică',
+    'К оплате — по физическому весу': 'De plată — după greutatea fizică',
+    'К оплате (округлено)': 'De plată (rotunjit)'
   };
   function L(s, v) {
     var t = (LANG === 'ro' && RO[s]) ? RO[s] : s;
@@ -1420,15 +1476,95 @@
     var l;
     if (tab === 'orders' && (l = document.getElementById('ordList'))) l.innerHTML = ordListHtml();
     else if (tab === 'weights' && (l = document.getElementById('wList'))) l.innerHTML = wtsListHtml();
-    else if (tab === 'fan' && (l = document.getElementById('fanFound'))) l.innerHTML = fanFoundHtml();
+    else if (tab === 'fan' && document.getElementById('fanFound')) fanPaint();
     else _renderLater = true;
   }
   document.addEventListener('focusout', function () {
     if (!_renderLater) return;
     setTimeout(function () { if (_renderLater && !typingNow()) { _renderLater = false; render(); } }, 150);
   });
+
+  /* v1.63.2: клавиатура iPhone и нижнее меню.
+     • Пока открыта клавиатура, нижнее меню и «+» спрятаны (html.kb).
+     • Поле с фокусом больше не удаляется с экрана «рывком» (см. render и FAN): iOS 26 после такого
+       закрытия клавиатуры не возвращал полную высоту экрана — меню повисало над краем.
+     • Подстраховка (WebKit 297779): клавиатура закрылась — прокрутку подталкиваем на 1 px (WebKit
+       пересчитывает прижатые к краю элементы), а если меню всё равно выше нижнего края — опускаем
+       всё, что прижато к низу, ровно на измеренный зазор (--kbfix). Только в приложении с экрана
+       «Домой», без масштаба; вверх не двигаем никогда. */
+  function kbField(a) {
+    return !!(a && a.tagName && (/^(TEXTAREA|SELECT)$/.test(a.tagName) || (a.tagName === 'INPUT' && !/^(checkbox|radio|button|submit|reset|range|color|file|image|hidden)$/i.test(a.type || 'text'))));
+  }
+  var KB = { open: false, fix: 0 };
+  (function () {
+    var root = document.documentElement, vv = window.visualViewport, raf = 0, tms = [];
+    var sa = function () { return !!window.__kbForceSA || isStandalone(); };
+    function kbNow() {
+      if (!kbField(document.activeElement)) return false;
+      if (window.__kbForceOpen != null) return !!window.__kbForceOpen;   // для проверок
+      return vv ? vv.height < window.innerHeight - 120 : true;
+    }
+    function setFix(px) {
+      px = Math.max(0, Math.min(140, Math.round(px)));
+      if (px === KB.fix) return;
+      KB.fix = px;
+      if (px) root.style.setProperty('--kbfix', px + 'px'); else root.style.removeProperty('--kbfix');
+    }
+    // на сколько нижний край меню ВЫШЕ нижнего края экрана (уже с учётом поправки); null — меню нет
+    function gap() {
+      var nav = document.getElementById('bnav');
+      if (!nav || nav.style.display === 'none') return null;
+      var r = nav.getBoundingClientRect();
+      return r.height ? window.innerHeight - r.bottom : null;
+    }
+    function measure() {
+      if (!sa() || KB.open || (vv && Math.abs((vv.scale || 1) - 1) > 0.01)) return;
+      var d = gap();
+      if (d == null || Math.abs(d) < 2) return;
+      setFix(KB.fix + d);
+    }
+    function vvOff() { return !!(vv && (Math.abs(vv.offsetTop) > 0.5 || vv.height < window.innerHeight - 1)); }
+    function nudge() {
+      if (!sa() || KB.open) return;
+      var d = gap();
+      if (!vvOff() && !(d != null && d > 2)) return;
+      var y = window.pageYOffset || 0, max = Math.max(0, (document.documentElement.scrollHeight || 0) - window.innerHeight);
+      var s = y >= 1 ? -1 : (max >= 1 ? 1 : 0);
+      if (!s) return;
+      window.scrollTo(0, y + s);
+      requestAnimationFrame(function () { window.scrollTo(0, y); measure(); });
+    }
+    function settle() {
+      tms.forEach(clearTimeout);
+      tms = [90, 380, 900].map(function (ms) { return setTimeout(function () { nudge(); measure(); }, ms); });
+    }
+    function upd() {
+      raf = 0;
+      var open = kbNow();
+      if (open !== KB.open) {
+        KB.open = open;
+        root.classList.toggle('kb', open);
+        if (!open) settle();
+      }
+      measure();
+    }
+    function soon() { if (!raf) raf = requestAnimationFrame(upd); }
+    document.addEventListener('focusin', soon);
+    document.addEventListener('focusout', function () { soon(); setTimeout(soon, 120); });
+    window.addEventListener('resize', soon);
+    window.addEventListener('scroll', soon, { passive: true });
+    window.addEventListener('orientationchange', function () { setTimeout(soon, 300); });
+    window.addEventListener('pageshow', function () { setTimeout(function () { soon(); settle(); }, 60); });
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) setTimeout(function () { soon(); settle(); }, 60); });
+    if (vv) { vv.addEventListener('resize', soon); vv.addEventListener('scroll', soon); }
+    window.__kb = { upd: upd, measure: measure, gap: gap, settle: settle, st: KB };   // для проверок
+  })();
+
   function render() {
     var box = document.getElementById('main');
+    // поле с фокусом сейчас исчезнет — сначала убрать фокус (клавиатура закроется как обычно)
+    var ae = document.activeElement;
+    if (ae && ae !== document.body && box && box.contains(ae) && kbField(ae)) { try { ae.blur(); } catch (e) {} }
     var ageEl = document.getElementById('age');
     var stale = state && state.updatedAt && (Date.now() - state.updatedAt) > 20 * 60000;
     ageEl.textContent = state && state.updatedAt ? (L('данные с компьютера') + ' · ' + agoText(state.updatedAt) + (stale ? ' · ' + L('компьютер не на связи?') : '')) : (V3.st === 'wait' ? L('ждём разрешения') : '—');
@@ -1593,7 +1729,7 @@
         var wPend = opsQueue().some(function (o) { return o.op === 'setWeight' && String(o.code) === String(f.code); });
         var canW = can('weights'), wHtml;
         if (wRec) {
-          var c = fanCompute(num(wRec.weight));
+          var wd = fanDims(wRec), c = fanCompute(Math.max(num(wRec.weight), wd ? fanVol(wd[0], wd[1], wd[2]) : 0));   // v1.63.2: есть габариты — больший из весов
           wHtml = '⚖️ <b>' + esc(String(wRec.weight)) + ' ' + esc(L('кг')) + '</b> · 📦 FAN ≈ <b>' + fmt(c.total) + ' MDL</b>' + (wPend ? ' · ' + esc(L('отправляется…')) : '') + (canW ? ' <button class="chip" style="margin:0 0 0 6px;" onclick="vfWt()">✏️</button>' : '');
         } else {
           wHtml = '⚖️ ' + esc(L('Веса нет в базе')) + ' ' + (wPend ? '· ' + esc(L('отправляется…')) : (canW ? '<button class="chip on" style="margin:0 0 0 6px;" onclick="vfWt()">' + esc(L('Задать вес')) + '</button>' : ''));
@@ -2405,7 +2541,12 @@
   };
 
   /* ── FAN ── */
-  var fanCodeQ = '';
+  // v1.63.2: кнопки на экране FAN не перерисовывают его целиком — обновляются только список грузов,
+  // найденные коды и расчёт; поле с фокусом остаётся (клавиатура не закрывается рывком — на iPhone
+  // именно это поднимало нижнее меню, когда добавляли много весов). Объёмный вес — как в калькуляторе
+  // на компьютере: Д × Ш × В (см) / 6000 (или м³ × 1 000 000 / 6000); к оплате — больший из двух.
+  var fanCodeQ = '', fanM3 = '', fanBoxSeq = 1, fanBoxes = [{ id: 1, l: '', w: '', h: '' }];
+  var FAN_VOL_DIV = 6000;
   function fanTariff() {
     var t = (state && state.fanTariff) || {};
     var r = {};
@@ -2428,55 +2569,187 @@
     return { rounded: rounded, extraKg: extraKg, extraCost: extraCost, ramburs: num(t.ramburs), zone: num(t.zone), surcharge: surcharge, total: subtotal + surcharge, t: t };
   }
   function fmt(n) { return (Math.round(n * 100) / 100).toFixed(2).replace(/\.00$/, ''); }
+  function fanVol(l, w, h) { l = num(l); w = num(w); h = num(h); return (l > 0 && w > 0 && h > 0) ? l * w * h / FAN_VOL_DIV : 0; }
+  // габариты товара из базы весов (все три > 0) — или null
+  function fanDims(rec) {
+    var d = [num(rec && rec.length), num(rec && rec.width), num(rec && rec.height)];
+    return (d[0] > 0 && d[1] > 0 && d[2] > 0) ? d : null;
+  }
+  // груз целиком: физический вес; объёмный — из «м³», иначе по коробкам, иначе по габаритам
+  // товаров из базы весов; к оплате — больший
+  function fanSum() {
+    var actual = 0, itemVol = 0, itemN = 0, boxVol = 0, boxN = 0;
+    fanWeights.forEach(function (r) { actual += r.kg; if (r.dim) { itemVol += fanVol(r.dim[0], r.dim[1], r.dim[2]); itemN++; } });
+    fanBoxes.forEach(function (b) { var v = fanVol(b.l, b.w, b.h); if (v > 0) { boxVol += v; boxN++; } });
+    var m3 = num(fanM3), vol = 0, src = '';
+    if (m3 > 0) { vol = m3 * 1000000 / FAN_VOL_DIV; src = 'm3'; }
+    else if (boxN) { vol = boxVol; src = 'box'; }
+    else if (itemN) { vol = itemVol; src = 'item'; }
+    return { actual: actual, vol: vol, src: src, boxN: boxN, m3: m3, bill: Math.max(actual, vol), byVol: vol > actual };
+  }
   function renderFan(box) {
-    var totalKg = fanWeights.reduce(function (s, r) { return s + r.kg; }, 0);
     var kg = esc(L('кг'));
     var h = '<div class="sec">' + esc(L('Груз')) + '</div>';
-    h += fanWeights.map(function (r, i) {
-      return '<div class="wrow"><span class="wn">' + esc(r.label) + '</span><span class="ww">' + fmt(r.kg) + ' ' + kg + '</span><button class="chip" onclick="fanDel(' + i + ')">✕</button></div>';
-    }).join('');
-    h += '<div class="row" style="margin-top:6px;">' +
-      '<input class="search" style="margin:0;flex:1;" id="fanKg" inputmode="decimal" placeholder="' + esc(L('Вес, кг (напр. 3.5)')) + '">' +
-      '<button class="chip on" style="margin:0;" onclick="fanAddKg()">+ ' + kg + '</button></div>';
-    // v1.63.1: цифровая клавиатура; при наборе обновляется только список под полем (#fanFound),
-    // само поле не пересоздаётся — иначе iPhone после каждой цифры переключал клавиатуру на буквы
-    h += '<div class="row"><input class="search" style="margin:0;flex:1;" id="fanCode" type="text" inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="' + esc(L('…или код из базы весов')) + '" value="' + esc(fanCodeQ) + '" oninput="fanCodeSearch(this.value)"></div>';
+    // поля — сверху и на месте: новые строки груза появляются ниже, поле с клавиатурой не сдвигается
+    h += '<div class="row" style="margin-top:0;">' +
+      '<input class="search" style="margin:0;flex:1;min-width:0;" id="fanKg" type="text" inputmode="decimal" autocomplete="off" placeholder="' + esc(L('Вес, кг (напр. 3.5)')) + '" onkeydown="if(event.key===\'Enter\'){event.preventDefault();fanAddKg();}">' +
+      '<button class="chip on" style="margin:0;" onmousedown="event.preventDefault()" onclick="fanAddKg()">+ ' + kg + '</button></div>';
+    // цифровая клавиатура: «,» в этом поле сразу становится «.» (точки на ней нет, а в кодах она нужна)
+    h += '<div class="row"><input class="search" style="margin:0;flex:1;min-width:0;" id="fanCode" type="text" inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="' + esc(L('…или код из базы весов')) + '" value="' + esc(fanCodeQ) + '" oninput="fanCodeSearch(this)"></div>';
+    h += '<div class="note fhint">' + esc(L('Точку в коде ставит «,» на цифровой клавиатуре: 81,1039 → 81.1039')) + '</div>';
     h += '<div id="fanFound">' + fanFoundHtml() + '</div>';
-    var c = fanCompute(totalKg);
-    h += '<div class="sec">' + esc(L('Расчёт (вес {a} кг → к оплате {b} кг)', { a: fmt(totalKg), b: c.rounded })) + '</div>';
-    h += '<div class="card">' +
+    h += '<div id="fanRows">' + fanRowsHtml() + '</div>';
+    h += '<div class="sec">' + esc(L('Объём — по желанию')) + '</div>';
+    h += '<div class="card"><div id="fanBoxes"' + (num(fanM3) > 0 ? ' class="off"' : '') + '>' + fanBoxes.map(fanBoxHtml).join('') + '</div>' +
+      '<div class="row fvadd"><button class="chip" onmousedown="event.preventDefault()" onclick="fanBoxAdd()">+ ' + esc(L('коробка')) + '</button>' +
+      '<span class="fvor">' + esc(L('или')) + '</span>' +
+      '<input class="search" id="fanM3" type="text" inputmode="decimal" autocomplete="off" placeholder="' + esc(L('объём, м³')) + '" value="' + esc(fanM3) + '" oninput="fanM3Set(this)"></div>' +
+      '<div class="note">' + esc(L('Объёмный вес = Д × Ш × В (см) / 6000 — как на компьютере. К оплате берётся больший: физический или объёмный.')) + '</div></div>';
+    h += '<div id="fanCalc">' + fanCalcHtml() + '</div>';
+    box.innerHTML = h;
+  }
+  function fanRowsHtml() {
+    if (!fanWeights.length) return '';
+    var kg = esc(L('кг')), cm = esc(L('см'));
+    var tot = fanWeights.reduce(function (s, r) { return s + r.kg; }, 0);
+    var h = '<div class="fsum"><span>' + esc(L('Добавлено: {n} · {w} кг', { n: fanWeights.length, w: fmt(tot) })) + '</span><button onmousedown="event.preventDefault()" onclick="fanClear()">' + esc(L('Очистить')) + '</button></div>';
+    for (var i = fanWeights.length - 1; i >= 0; i--) {   // новые — сверху, сразу под полями
+      var r = fanWeights[i];
+      h += '<div class="wrow"><span class="wn">' + esc(r.label)
+        + (r.dim ? '<span class="fdm">📦 ' + esc(r.dim.map(fmt).join(' × ')) + ' ' + cm + ' → ' + esc(L('объёмный вес')) + ' ' + fmt(fanVol(r.dim[0], r.dim[1], r.dim[2])) + ' ' + kg + '</span>' : '')
+        + '</span><span class="ww">' + fmt(r.kg) + ' ' + kg + '</span><button class="chip" style="margin:0;" onmousedown="event.preventDefault()" onclick="fanDel(' + i + ')">✕</button></div>';
+    }
+    return h;
+  }
+  function fanBoxV(b) {
+    var v = fanVol(b.l, b.w, b.h);
+    return v > 0 ? esc(L('объёмный вес')) + ' <b>' + fmt(v) + ' ' + esc(L('кг')) + '</b>' : esc(L('Д × Ш × В коробки, см'));
+  }
+  function fanBoxHtml(b) {
+    var f = function (k, ph) { return '<input class="search" type="text" inputmode="decimal" autocomplete="off" placeholder="' + esc(L(ph)) + '" value="' + esc(b[k]) + '" oninput="fanBoxSet(' + b.id + ',\'' + k + '\',this)">'; };
+    return '<div class="fbox" id="fanBox' + b.id + '"><div class="fdims">' + f('l', 'Длина') + '<span class="fx">×</span>' + f('w', 'Ширина') + '<span class="fx">×</span>' + f('h', 'Высота')
+      + '<span class="fcm">' + esc(L('см')) + '</span><button class="fdel" type="button" onmousedown="event.preventDefault()" onclick="fanBoxDel(' + b.id + ')" aria-label="delete">✕</button></div>'
+      + '<div class="fbv" id="fanBoxV' + b.id + '">' + fanBoxV(b) + '</div></div>';
+  }
+  function fanCalcHtml() {
+    var s = fanSum(), c = fanCompute(s.bill), kg = ' ' + esc(L('кг'));
+    var src = s.src === 'm3' ? L('{v} м³', { v: String(Math.round(s.m3 * 1000) / 1000) }) : s.src === 'box' ? (s.boxN > 1 ? L('коробок: {n}', { n: s.boxN }) : L('по коробке')) : s.src === 'item' ? L('габариты из базы весов') : '';
+    var pay = s.vol > 0 ? (s.byVol ? L('К оплате — по объёмному весу') : L('К оплате — по физическому весу')) : L('К оплате (округлено)');
+    return '<div class="sec">' + esc(L('Расчёт')) + '</div><div class="card">' +
+      '<div class="frow"><span>' + esc(L('Физический вес')) + '</span><b>' + fmt(s.actual) + kg + '</b></div>' +
+      (s.vol > 0 ? '<div class="frow"><span>' + esc(L('Объёмный вес')) + ' <span class="fsrc">(' + esc(src) + ')</span></span><b>' + fmt(s.vol) + kg + '</b></div>' : '') +
+      '<div class="frow fpay' + (s.byVol ? ' vol' : '') + '"><span>' + esc(pay) + '</span><b>' + c.rounded + kg + '</b></div>' +
       '<div class="frow"><span>Ramburs (CoD)</span><b>' + fmt(c.ramburs) + ' MDL</b></div>' +
       '<div class="frow"><span>' + esc(L('Зона (до {n} кг)', { n: fmt(num(c.t.baseWeight)) })) + '</span><b>' + fmt(c.zone) + ' MDL</b></div>' +
       (c.extraKg > 0 ? '<div class="frow"><span>' + esc(L('Сверхвес {n} кг × {r}', { n: c.extraKg, r: fmt(num(c.t.extraRate)) })) + '</span><b>' + fmt(c.extraCost) + ' MDL</b></div>' : '') +
       '<div class="frow"><span>' + esc(L('Надбавка {p}%', { p: fmt(num(c.t.surchargePercent)) })) + '</span><b>' + fmt(c.surcharge) + ' MDL</b></div>' +
-      '<div class="ftotal"><span>' + esc(L('ИТОГО')) + '</span><span>' + fmt(c.total) + ' MDL</span></div>' +
-      '</div>' +
-      '<div class="note">' + esc(L('Тариф — тот же, что настроен в расширении на компьютере')) + ((state && state.fanTariff) ? '' : ' ' + esc(L('(пока стандартный)'))) + '. ' + esc(L('Объёмный вес считается только на компьютере.')) + '</div>';
-    box.innerHTML = h;
+      '<div class="ftotal"><span>' + esc(L('ИТОГО')) + '</span><span>' + fmt(c.total) + ' MDL</span></div></div>' +
+      '<div class="note">' + esc(L('Тариф — тот же, что настроен в расширении на компьютере')) + ((state && state.fanTariff) ? '' : ' ' + esc(L('(пока стандартный)'))) + '.</div>';
   }
-  window.fanDel = function (i) { fanWeights.splice(i, 1); render(); };
-  window.fanAddKg = function () {
-    var v = num((document.getElementById('fanKg') || {}).value);
-    if (v <= 0) { toast(L('⚠ Введи вес в кг')); return; }
-    fanWeights.push({ label: L('Вес вручную'), kg: v }); render();
+  function fanCalcPaint() { var c = document.getElementById('fanCalc'); if (c) c.innerHTML = fanCalcHtml(); }
+  // обновить список, найденное и расчёт — поля ввода не трогаем
+  function fanPaint() {
+    if (tab !== 'fan') return;
+    var rows = document.getElementById('fanRows'), f = document.getElementById('fanFound');
+    if (!rows || !f) { render(); return; }
+    rows.innerHTML = fanRowsHtml();
+    f.innerHTML = fanFoundHtml();
+    fanCalcPaint();
+  }
+  window.fanDel = function (i) { fanWeights.splice(i, 1); fanPaint(); };
+  window.fanClear = function () {
+    if (!fanWeights.length || !confirm(L('Очистить список грузов?'))) return;
+    fanWeights = []; fanPaint();
   };
-  // найденные в базе весов коды (запятая с цифровой клавиатуры = точка: 81,1039 → 81.1039)
+  // «+ кг»: строка добавилась, поле очистилось и осталось с фокусом — можно сразу вводить следующий вес
+  window.fanAddKg = function () {
+    var el = document.getElementById('fanKg');
+    var v = num(el && el.value);
+    if (v <= 0) { toast(L('⚠ Введи вес в кг')); return; }
+    fanWeights.push({ label: L('Вес вручную'), kg: v });
+    if (el) el.value = '';
+    fanPaint();
+  };
+  window.fanBoxSet = function (id, k, el) {
+    var b = fanBoxes.filter(function (x) { return x.id === id; })[0];
+    if (!b || !el) return;
+    b[k] = String(el.value || '');
+    var v = document.getElementById('fanBoxV' + id); if (v) v.innerHTML = fanBoxV(b);
+    fanCalcPaint();
+  };
+  window.fanBoxAdd = function () {
+    var b = { id: ++fanBoxSeq, l: '', w: '', h: '' };
+    fanBoxes.push(b);
+    var wrap = document.getElementById('fanBoxes');
+    if (!wrap) { render(); return; }
+    wrap.insertAdjacentHTML('beforeend', fanBoxHtml(b));
+    var inp = document.querySelector('#fanBox' + b.id + ' input');
+    if (inp) { try { inp.focus(); } catch (e) {} }   // сразу печатать длину новой коробки
+  };
+  window.fanBoxDel = function (id) {
+    var row = document.getElementById('fanBox' + id);
+    if (fanBoxes.length <= 1) {   // последнюю коробку не убираем — очищаем
+      var b = fanBoxes[0]; b.l = b.w = b.h = '';
+      if (row) Array.prototype.forEach.call(row.querySelectorAll('input'), function (i) { i.value = ''; });
+      var v = document.getElementById('fanBoxV' + b.id); if (v) v.innerHTML = fanBoxV(b);
+    } else {
+      var a = document.activeElement;
+      if (row && a && row.contains(a)) { try { a.blur(); } catch (e) {} }   // поле с фокусом — сначала убрать фокус
+      fanBoxes = fanBoxes.filter(function (x) { return x.id !== id; });
+      if (row && row.parentNode) row.parentNode.removeChild(row);
+    }
+    fanCalcPaint();
+  };
+  window.fanM3Set = function (el) {
+    fanM3 = String((el && el.value) || '');
+    var w = document.getElementById('fanBoxes'); if (w) w.classList.toggle('off', num(fanM3) > 0);
+    fanCalcPaint();
+  };
+  // найденные в базе весов коды: сначала точное совпадение, потом «начинается с», потом «содержит»;
+  // набрали без точки (811039) — в конце и коды, которые без точки начинаются так же (81.1039)
   function fanFoundHtml() {
     var db = (state && state.weights) || [], kg = esc(L('кг'));
     var q = fanCodeQ.trim().toLowerCase().replace(/,/g, '.');
-    var found = q ? db.filter(function (w) { return String(w.code || '').toLowerCase().indexOf(q) >= 0; }).slice(0, 8) : [];
-    if (q && !found.length) return '<div class="note">' + esc(L('В базе весов такого кода нет')) + '</div>';
-    return found.map(function (w) {
-      return '<div class="wrow" onclick="fanAddCode(\'' + esc(w.code) + '\')"><span class="wc">' + esc(w.code) + '</span><span class="wn">' + esc(w.name || '') + '</span><span class="ww">+' + esc(String(w.weight)) + ' ' + kg + '</span></div>';
+    if (!q) return '';
+    var bare = function (s) { return s.replace(/[^0-9a-zа-яё]/g, ''); }, qb = q.indexOf('.') < 0 ? bare(q) : '';
+    var hits = [];
+    db.forEach(function (w, i) {
+      var c = String((w && w.code) || '').toLowerCase(), p;
+      if (!c) return;
+      p = c.indexOf(q);
+      var r = c === q ? 0 : p === 0 ? 1 : p > 0 ? 2 : (qb && bare(c).indexOf(qb) === 0) ? 3 : -1;
+      if (r >= 0) hits.push({ w: w, r: r, i: i });
+    });
+    hits.sort(function (a, b) { return a.r - b.r || a.i - b.i; });
+    if (!hits.length) return '<div class="note">' + esc(L('В базе весов такого кода нет')) + '</div>';
+    return hits.slice(0, 8).map(function (x) {
+      var w = x.w;
+      return '<div class="wrow" onmousedown="event.preventDefault()" onclick="fanAddCode(\'' + esc(w.code) + '\')"><span class="wc">' + esc(w.code) + '</span><span class="wn">' + esc(w.name || '') + '</span><span class="ww">+' + esc(String(w.weight)) + ' ' + kg + (fanDims(w) ? ' 📦' : '') + '</span></div>';
     }).join('');
   }
-  window.fanCodeSearch = function (v) { fanCodeQ = v; var f = document.getElementById('fanFound'); if (f && tab === 'fan') f.innerHTML = fanFoundHtml(); else render(); };
+  window.fanCodeSearch = function (el) {
+    var v;
+    if (el && typeof el === 'object') {
+      v = String(el.value || '');
+      if (v.indexOf(',') >= 0) {   // «,» с цифровой клавиатуры → «.» прямо в поле, курсор на месте
+        var p = el.selectionStart;
+        v = v.replace(/,/g, '.');
+        el.value = v;
+        try { if (typeof p === 'number') el.setSelectionRange(p, p); } catch (e) {}
+      }
+    } else v = String(el == null ? '' : el);
+    fanCodeQ = v;
+    var f = document.getElementById('fanFound');
+    if (f && tab === 'fan') f.innerHTML = fanFoundHtml(); else render();
+  };
+  // товар из базы: его вес (и габариты, если они есть в базе — для объёмного веса); поле кода очищается
   window.fanAddCode = function (code) {
-    var db = (state && state.weights) || [];
-    var w = db.find(function (x) { return String(x.code) === code; });
+    var w = ((state && state.weights) || []).filter(function (x) { return x && String(x.code) === String(code); })[0];
     if (!w) return;
-    fanWeights.push({ label: code + (w.name ? ' · ' + w.name : ''), kg: num(w.weight) });
-    fanCodeQ = ''; render();
+    fanWeights.push({ label: code + (w.name ? ' · ' + w.name : ''), kg: num(w.weight), dim: fanDims(w) });
+    fanCodeQ = '';
+    var el = document.getElementById('fanCode'); if (el) el.value = '';
+    fanPaint();
   };
 
   /* ── CHECK (runs on the computer; phone sends the request) ── */
