@@ -426,7 +426,7 @@
 <script>
 (function () {
   'use strict';
-  var PAGE_VER = '1.65.0';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
+  var PAGE_VER = '1.66.0';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
   var API = 'https://api.github.com';
   /* ── v1.62: язык приложения (RU / RO). L('русский текст', {n: 5}) — перевод по
      словарю RO (ключ — сам русский текст), {n} — подстановки. Нет в словаре — по-русски. ── */
@@ -977,7 +977,15 @@
     'разобрано': 'rezolvat',
     'Разобрался': 'Rezolvat',
     'Сумма верна': 'Suma e corectă',
-    'Отметка отправлена — компьютер применит в течение минуты': 'Marcajul e trimis — calculatorul aplică într-un minut'
+    'Отметка отправлена — компьютер применит в течение минуты': 'Marcajul e trimis — calculatorul aplică într-un minut',
+    // v1.66: телефон сменил ключ — доступ возвращается сам
+    'Восстанавливаю доступ': 'Restabilesc accesul',
+    'Телефон сменил ключ шифрования (сбой памяти телефона). Ссылка та же — ничего удалять и переустанавливать не нужно: компьютер узнает этот телефон и сам вернёт прежний доступ, обычно за минуту-две.': 'Telefonul și-a schimbat cheia de criptare (eroare de memorie a telefonului). Linkul e același — nu trebuie șters sau reinstalat nimic: calculatorul recunoaște telefonul și îi redă singur accesul de înainte, de obicei în 1–2 minute.',
+    'Страница проверяет сама каждые 20 секунд. Компьютер должен быть включён. Если не восстановится — владелец увидит запрос с этим кодом и разрешит его.': 'Pagina verifică singură la fiecare 20 de secunde. Calculatorul trebuie să fie pornit. Dacă nu se restabilește — proprietarul va vedea cererea cu acest cod și o va permite.',
+    'Память телефона не ответила': 'Memoria telefonului nu a răspuns',
+    'Перезапускаю приложение — ключ и доступ сохранятся.': 'Repornesc aplicația — cheia și accesul se păstrează.',
+    '🔑 Доступ восстановлен — всё как раньше': '🔑 Acces restabilit — totul ca înainte',
+    'данные зашифрованы под другой ключ компьютера — открой свежую ссылку от владельца': 'datele sunt criptate pentru altă cheie a calculatorului — deschide un link nou de la proprietar'
   };
   function L(s, v) {
     var t = (LANG === 'ro' && RO[s]) ? RO[s] : s;
@@ -1169,34 +1177,72 @@
       };
     });
   }
-  function devKeys() {
-    return idb('readonly', function (os) { return os.get('dev'); }).catch(function () { return null; }).then(function (rec) {
-      if (rec && rec.priv && rec.pub) return rec;
-      var ls = null; try { ls = JSON.parse(localStorage.getItem('vp_dev_jwk') || 'null'); } catch (e) { ls = null; }
-      if (ls && ls.jwk && ls.pub) {
-        return crypto.subtle.importKey('jwk', ls.jwk, { name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits']).then(function (priv) { return { priv: priv, pub: ls.pub }; });
-      }
-      return crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits']).then(function (kp) {
-        return crypto.subtle.exportKey('raw', kp.publicKey).then(function (raw) {
-          var nrec = { priv: kp.privateKey, pub: b64u(raw) };
-          return idb('readwrite', function (os) { return os.put(nrec, 'dev'); }).then(function () {
-            return idb('readonly', function (os) { return os.get('dev'); });
-          }).then(function (back) {
-            if (back && back.pub === nrec.pub) return nrec;
-            throw new Error('idb-readback');
-          }).catch(function () {
-            // IndexedDB недоступен (приватный режим и т. п.) — ключ в localStorage
-            return crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']).then(function (kp2) {
-              return Promise.all([crypto.subtle.exportKey('jwk', kp2.privateKey), crypto.subtle.exportKey('raw', kp2.publicKey)]).then(function (ex) {
-                var pub2 = b64u(ex[1]);
-                try { localStorage.setItem('vp_dev_jwk', JSON.stringify({ jwk: ex[0], pub: pub2 })); } catch (e) {}
-                return { priv: kp2.privateKey, pub: pub2 };
-              });
-            });
-          });
+  /* v1.66: ключ устройства — не терять. Раньше любой сбой чтения IndexedDB (на iPhone бывает «соединение
+     с базой потеряно» после сна приложения) считался «ключа нет»: создавался новый и затирал прежний —
+     для компьютера это новое устройство, а данные под старый ключ телефону уже не расшифровать. Теперь:
+       • чтение — с повторами, прежняя запись 'dev' больше никогда не перезаписывается;
+       • ключ прошлого запуска (vp_did) главнее остальных найденных;
+       • новые ключи — с запасной копией в localStorage (vp_dev_bak) и в IndexedDB ('devj');
+       • ключей не нашлось, база не ответила, а телефон уже был подключён — не создаём новый сразу
+         (e.busy: boot сначала перезапускает приложение — это лечит сбой WebKit). */
+  var EC = { name: 'ECDH', namedCurve: 'P-256' };
+  function lsJson(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }
+  function lsGet(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+  function didOf(pub) { return crypto.subtle.digest('SHA-256', unb64u(pub)).then(function (h) { return b64u(new Uint8Array(h)).slice(0, 16); }); }
+  function idbGet(k) {   // 3 попытки: сбой после сна приложения часто проходит за доли секунды
+    var n = 0;
+    var go = function () {
+      return idb('readonly', function (os) { return os.get(k); }).catch(function (e) {
+        if (++n >= 3) throw e;
+        return new Promise(function (r) { setTimeout(r, n === 1 ? 250 : 900); }).then(go);
+      });
+    };
+    return go();
+  }
+  function jwkImport(o) {
+    if (!o || !o.jwk || typeof o.pub !== 'string') return Promise.resolve(null);
+    return crypto.subtle.importKey('jwk', o.jwk, EC, false, ['deriveBits']).then(function (priv) { return { priv: priv, pub: o.pub, j: o }; }, function () { return null; });
+  }
+  function hadIdentity() { return !!(lsGet('vp_did') || lsGet('vp_g') || lsGet('vp_box') || lsGet('vp_wrote')); }
+  function devNew() {
+    return crypto.subtle.generateKey(EC, true, ['deriveBits']).then(function (kp) {
+      return Promise.all([crypto.subtle.exportKey('jwk', kp.privateKey), crypto.subtle.exportKey('raw', kp.publicKey)]).then(function (ex) {
+        var o = { jwk: ex[0], pub: b64u(ex[1]), at: Date.now() };
+        lsSet('vp_dev_bak', JSON.stringify(o));
+        return idb('readwrite', function (os) { return os.put(o, 'devj'); }).catch(function () {}).then(function () {
+          // в работе — неизвлекаемая копия; JWK только как запасная
+          return jwkImport(o).then(function (r) { if (!r) throw new Error('import'); r.src = 'new'; return r; });
         });
       });
     });
+  }
+  // opts.fresh — база так и не ответила даже после перезапуска: новый ключ (компьютер узнает телефон сам)
+  function devKeys(opts) {
+    opts = opts || {};
+    var err = false, cands = [];
+    var add = function (src) { return function (r) { if (r && r.priv && r.pub) { r.src = src; cands.push(r); } }; };
+    var fail = function () { err = true; return null; };
+    return idbGet('devj').catch(fail).then(jwkImport).then(add('devj'))
+      .then(function () { return jwkImport(lsJson('vp_dev_bak')); }).then(add('bak'))
+      .then(function () { return idbGet('dev').catch(fail); }).then(add('dev'))
+      .then(function () { return jwkImport(lsJson('vp_dev_jwk')); }).then(add('jwk'))
+      .then(function () { return Promise.all(cands.map(function (c) { return didOf(c.pub).then(function (d) { c.did = d; }); })); })
+      .then(function () {
+        var want = lsGet('vp_did');
+        var pick = cands.filter(function (c) { return want && c.did === want; })[0] || cands[0];
+        if (!pick) {
+          if (err && !opts.fresh && hadIdentity()) { var e = new Error('idb'); e.busy = true; throw e; }
+          return devNew();
+        }
+        // запасные копии извлекаемого ключа — где пропали, дописать
+        if (pick.j) {
+          var has = function (src) { return cands.some(function (c) { return c.src === src && c.did === pick.did; }); };
+          if (pick.src !== 'jwk' && !has('bak')) lsSet('vp_dev_bak', JSON.stringify(pick.j));
+          if (pick.src !== 'jwk' && !has('devj') && !err) idb('readwrite', function (os) { return os.put(pick.j, 'devj'); }).catch(function () {});
+        }
+        return pick;
+      });
   }
   function deriveAes(priv, compPub) {
     return crypto.subtle.importKey('raw', unb64u(compPub), { name: 'ECDH', namedCurve: 'P-256' }, false, []).then(function (pub) {
@@ -1266,7 +1312,10 @@
       return boxOpen(box, 'state').then(function (s) {
         try { localStorage.setItem('vp_box', JSON.stringify(box)); } catch (e) {}   // для мгновенного старта (зашифрованным)
         return s;
-      }, function () { throw new Error(L('не расшифровалось — открой свежую ссылку от владельца')); });
+      }, function () {
+        // v1.66: e.dec — данные под другой ключ (обычно: телефон сменил свой ключ) — refresh пойдёт через reg.json
+        var e3 = new Error(L('не расшифровалось — открой свежую ссылку от владельца')); e3.dec = true; throw e3;
+      });
     });
   }
 
@@ -1299,9 +1348,17 @@
     if (/Windows/.test(ua)) return 'Windows'; if (/Macintosh/.test(ua)) return 'Mac'; if (/Linux/.test(ua)) return 'Linux';
     return 'Browser';
   }
+  // v1.66: секрет восстановления — случайная строка в памяти телефона, уходит на компьютер только
+  // зашифрованной. Сменился ключ устройства (сбой хранилища) — по этому секрету компьютер узнаёт,
+  // что это тот же телефон, и сам возвращает ему прежний доступ.
+  function recSecret() {
+    var r = lsGet('vp_rec');
+    if (!/^[A-Za-z0-9_-]{24,200}$/.test(r)) { r = b64u(crypto.getRandomValues(new Uint8Array(24))); lsSet('vp_rec', r); }
+    return r;
+  }
   function hello() {
     return { name: devName() || guessModel(), model: guessModel(), ua: navigator.userAgent || '', lang: LANG, ver: PAGE_VER, plat: navigator.platform || '',
-      caps: { gz: typeof DecompressionStream === 'function', push: pushSupported(), sa: isStandalone() } };
+      caps: { gz: typeof DecompressionStream === 'function', push: pushSupported(), sa: isStandalone() }, rec: recSecret() };
   }
   // Визит = открыли приложение (не чаще раза в 10 мин). IP, страна и город — по данным
   // сервиса геолокации (сам телефон своего IP не знает).
@@ -1339,6 +1396,7 @@
       if (p.status !== 200) throw new Error('patch ' + p.status);
       V3.mine = true;
       try { localStorage.setItem('vp_wrote', String(Date.now())); } catch (e) {}
+      lsSet('vp_rec_did', V3.did);   // v1.66: компьютер знает секрет восстановления этого ключа
       return true;
     }).then(function (r) { _wBusy = null; if (_wAgain) { _wAgain = false; return devWrite(); } return r; },
       function (e) { _wBusy = null; _wAgain = false; throw e; });
@@ -1366,6 +1424,13 @@
     if (pp.on && _pushSub) { var j = _pushSub.toJSON ? _pushSub.toJSON() : _pushSub; return { endpoint: j.endpoint, keys: j.keys, kinds: pp.kinds || null }; }
     if (pp.off) return null;
     return undefined;
+  }
+  // v1.66: подписка на уведомления — до записи файла устройства (по ней компьютер узнаёт телефон,
+  // сменивший ключ); дольше 4 с не ждём
+  var _swP = null;
+  function swReady() {
+    if (!_swP) _swP = swInit();
+    return Promise.race([_swP, new Promise(function (r) { setTimeout(r, 4000); })]);
   }
   function swInit() {
     if (!pushSupported() || location.protocol !== 'https:') return Promise.resolve(null);
@@ -1544,6 +1609,13 @@
       + (extra ? '<p style="color:#b46b00;">' + esc(extra) + '</p>' : '')
       + '<p class="note">' + esc(L('Страница проверяет сама каждые 20 секунд. Компьютер должен быть включён.')) + '</p>'
       + '<button class="ghost" style="max-width:320px;margin:14px auto 0;display:block;" onclick="refresh()">' + esc(L('🔄 Проверить сейчас')) + '</button>' + lang + '</div>';
+    // v1.66: телефон сменил ключ — компьютер узнает его (подписка / секрет восстановления) и вернёт доступ сам
+    if (kind === 'rekey') return '<div class="gate"><div class="big">🔑</div><h2>' + esc(L('Восстанавливаю доступ')) + '</h2><p>' + esc(L('Телефон сменил ключ шифрования (сбой памяти телефона). Ссылка та же — ничего удалять и переустанавливать не нужно: компьютер узнает этот телефон и сам вернёт прежний доступ, обычно за минуту-две.')) + '</p>'
+      + '<div class="dcode">' + esc(code) + '</div><p style="font-weight:700;color:#444;">' + esc(devName() || guessModel()) + '</p>'
+      + (extra ? '<p style="color:#b46b00;">' + esc(extra) + '</p>' : '')
+      + '<p class="note">' + esc(L('Страница проверяет сама каждые 20 секунд. Компьютер должен быть включён. Если не восстановится — владелец увидит запрос с этим кодом и разрешит его.')) + '</p>'
+      + '<button class="ghost" style="max-width:320px;margin:14px auto 0;display:block;" onclick="refresh()">' + esc(L('🔄 Проверить сейчас')) + '</button>' + lang + '</div>';
+    if (kind === 'busy') return '<div class="gate"><div class="big">⏳</div><h2>' + esc(L('Память телефона не ответила')) + '</h2><p>' + esc(L('Перезапускаю приложение — ключ и доступ сохранятся.')) + '</p></div>';
     if (kind === 'off') return '<div class="gate"><div class="big">⛔</div><h2>' + esc(L('Доступ закрыт')) + '</h2><p>' + esc(L('Владелец закрыл доступ этому устройству. Данные с телефона удалены.')) + '</p><div class="dcode">' + esc(code) + '</div>' + lang + '</div>';
     if (kind === 'err') return '<div class="gate"><div class="big">⚠️</div><h2>' + esc(L('Не удалось подключиться')) + '</h2><p>' + esc(extra || '') + '</p><button class="save" style="max-width:320px;margin:16px auto 0;" onclick="refresh()">' + esc(L('Повторить')) + '</button>'
       + '<p class="note" style="margin-top:18px;">' + esc(L('Если ссылка менялась — вставь новую:')) + '</p>' + paste + '</div>';
@@ -3306,6 +3378,11 @@
   function applyState(s) {
     state = s || {};
     V3.st = 'ok'; gateKind = '';
+    if (V3.rekey) {
+      V3.rekey = ''; V3.rkSent = false;
+      try { localStorage.removeItem('vp_rekey'); } catch (e) {}
+      setTimeout(function () { toast(L('🔑 Доступ восстановлен — всё как раньше')); }, 400);
+    }
     var confirmed = {};
     (state.consumedOps || []).forEach(function (id) { confirmed[id] = 1; });
     // Компьютер сообщил, что команда НЕ прошла (например, нет входа в админку или нет прав) —
@@ -3338,24 +3415,36 @@
     _refBusy = true; _lastRef = Date.now();
     var b = document.getElementById('refBtn'); if (!quiet && b) { b.disabled = true; b.classList.add('spin'); }
     var g = localStorage.getItem('vp_g') || '';
+    // ждём разрешения — или (v1.66) телефон сменил ключ и компьютер вот-вот вернёт ему прежний доступ.
+    // Во втором случае файл устройства пишем ещё раз, уже с подпиской на уведомления: по ней узнают
+    var waitGate = function (note) {
+      V3.st = 'wait';
+      var k = V3.rekey ? 'rekey' : 'wait';
+      if (!V3.mine || (V3.rekey && !V3.rkSent)) {
+        V3.rkSent = !!V3.rekey;
+        return swReady().then(function () { return devWrite(); }).then(function () { gate(k); });
+      }
+      gate(k, note || '');
+    };
     var viaReg = function () {
       return fetchReg().then(function (r) {
-        if (!r) {
-          V3.st = 'wait';
-          if (!V3.mine) return devWrite().then(function () { gate('wait'); });
-          gate('wait', V3.regAt ? '' : L('Компьютер ещё не видел это устройство — он должен быть включён.'));
-          return;
-        }
+        if (!r) return waitGate((V3.regAt || V3.rekey) ? '' : L('Компьютер ещё не видел это устройство — он должен быть включён.'));
         if (r.st === 'off') { wipe(); V3.st = 'off'; gate('off'); return; }
-        if (r.st !== 'ok' || !r.g) { V3.st = 'wait'; if (!V3.mine) return devWrite().then(function () { gate('wait'); }); gate('wait'); return; }
+        if (r.st !== 'ok' || !r.g) return waitGate('');
         try { localStorage.setItem('vp_g', r.g); } catch (e) {}
-        return fetchData(r.g).then(applyState);
+        return fetchData(r.g).then(applyState, function (e) {
+          // свой же gist по reg.json не открылся — ключ компьютера сменили: тут нужна свежая ссылка
+          if (e && e.dec) throw new Error(L('данные зашифрованы под другой ключ компьютера — открой свежую ссылку от владельца'));
+          throw e;
+        });
       });
     };
     (opsQueue().length ? sendOps() : Promise.resolve()).then(function () {
       if (!g) return viaReg();
       return fetchData(g).then(applyState, function (e) {
         if (e && e.gone) { try { localStorage.removeItem('vp_g'); } catch (x) {} return viaReg(); }
+        // v1.66: прежний gist под старый ключ телефона — не тупик: забываем его и спрашиваем компьютер
+        if (e && e.dec) { rekeyMark('dec'); return viaReg(); }
         throw e;
       });
     }).catch(function (e) {
@@ -3364,6 +3453,17 @@
       else if (!quiet) toast(L('⚠ Не удалось загрузить') + ': ' + m);
     }).then(function () { _refBusy = false; if (b) { b.disabled = false; b.classList.remove('spin'); } });
   };
+  // v1.66: телефон сменил ключ — данные под прежний ключ больше не открыть (очередь команд оставляем:
+  // компьютер знает, какие из них уже выполнил под прежним ключом, и повторно их не применит)
+  function rekeyClear() {
+    ['vp_g', 'vp_box', 'vp_arc'].forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
+    arcData = null;
+  }
+  // экран «Восстанавливаю доступ» — и после перезапуска приложения, пока данные не пришли
+  function rekeyMark(why) {
+    if (!V3.rekey) { V3.rekey = why || 'key'; lsSet('vp_rekey', V3.rekey); }
+    rekeyClear();
+  }
   function wipe() {
     ['vp_g', 'vp_box', 'vp_ops', 'vp_arc', 'vp_check_input', 'vp_ocr_warn', 'vp_find_q'].forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
     state = null; arcData = null;
@@ -3594,10 +3694,13 @@
     pre.then(function () {
       return noteVisit().then(function (fresh) {
         var wrote = +(localStorage.getItem('vp_wrote') || 0);
-        if (fresh || opsQueue().length || Date.now() - wrote > 6 * 3600000) return devWrite().catch(function () {});
+        // v1.66: и когда компьютер ещё не получил секрет восстановления этого ключа
+        if (fresh || opsQueue().length || Date.now() - wrote > 6 * 3600000 || lsGet('vp_rec_did') !== V3.did) {
+          return swReady().then(function () { return devWrite(); }).catch(function () {});
+        }
       });
     }).then(function () { window.refresh(true); });
-    swInit().then(function () { if (document.getElementById('cfgSheet').style.display === 'block') cfgPaint(); });
+    swReady().then(function () { if (document.getElementById('cfgSheet').style.display === 'block') cfgPaint(); });
     if (!_pollT) _pollT = setInterval(function () {
       if (document.hidden || !cfg || !V3.aes) return;
       var gap = V3.st === 'ok' ? 60000 : 20000;
@@ -3610,19 +3713,41 @@
     loadCfg();
     if (!cfg) { render(); return; }
     if (!cryptoOk()) { gate('nocrypto'); return; }
-    devKeys().then(function (rec) {
+    if (!V3.rekey && lsGet('vp_rekey')) V3.rekey = lsGet('vp_rekey');
+    devKeys({ fresh: V3.fresh }).then(function (rec) {
       V3.priv = rec.priv; V3.pub = rec.pub;
-      return crypto.subtle.digest('SHA-256', unb64u(rec.pub));
-    }).then(function (h) {
-      V3.did = b64u(new Uint8Array(h)).slice(0, 16);
+      return didOf(rec.pub);
+    }).then(function (did) {
+      V3.did = did;
+      // v1.66: ключ не тот, что в прошлый раз — данные под прежний не открыть; доступ вернёт компьютер
+      var prev = lsGet('vp_did');
+      if (prev && prev !== did) rekeyMark('key');
+      lsSet('vp_did', did);
       return deriveAes(V3.priv, cfg.c);
     }).then(function (k) {
       V3.aes = k;
       if (!devName()) { gate(needInstall() ? 'install' : 'name'); return; }
       start();
-    }).catch(function (e) { gate('err', L('ключ устройства не создался') + ': ' + ((e && e.message) || e)); });
+    }).catch(function (e) {
+      if (e && e.busy) { idbBusy(); return; }
+      gate('err', L('ключ устройства не создался') + ': ' + ((e && e.message) || e));
+    });
+  }
+  // v1.66: база ключей не ответила, а телефон уже был подключён. Сначала один перезапуск (сбой WebKit
+  // «соединение с базой потеряно» проходит только так); не помогло — новый ключ, компьютер узнает телефон.
+  function idbBusy() {
+    var at = -1; try { at = +(sessionStorage.getItem('vp_idb_rl') || 0); } catch (e) { at = -1; }
+    if (at >= 0 && Date.now() - at > 120000) {
+      try { sessionStorage.setItem('vp_idb_rl', String(Date.now())); } catch (e) {}
+      gate('busy');
+      setTimeout(function () { (window.__veReload || function () { location.reload(); })(); }, 1200);
+      return;
+    }
+    V3.fresh = true;
+    boot();
   }
   window.__veV3 = V3;   // для проверок
+  window.__veBoot = boot;   // v1.66: проверки — «перезапуск» приложения
   window.__veState = function () { return state; };
   document.addEventListener('visibilitychange', function () {
     if (document.hidden || !cfg || !V3.aes) return;
