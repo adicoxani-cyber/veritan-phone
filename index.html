@@ -177,6 +177,26 @@
   .bdot { position: absolute; top: 3px; right: 2px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: #ff3b5c; color: #fff; font-size: 11px; font-weight: 800; line-height: 18px; font-style: normal; box-shadow: 0 0 0 2px #0f2766; display: none; }
   .spin svg { animation: vspin .9s linear infinite; }
   @keyframes vspin { to { transform: rotate(360deg); } }
+  /* v1.67: поиск по коду — ход ожидания ответа компьютера */
+  .fw-top { display: flex; align-items: center; gap: 10px; }
+  .fw-top b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fw-spin { width: 18px; height: 18px; flex-shrink: 0; border: 2.5px solid #d6e4ff; border-top-color: #2d6cf0; border-radius: 50%; animation: vspin .8s linear infinite; }
+  .fw-time { font-variant-numeric: tabular-nums; font-weight: 800; color: #2d6cf0; background: #eef4ff; border-radius: 9999px; padding: 2px 10px; font-size: 13px; }
+  .fw-bar { position: relative; height: 4px; border-radius: 4px; background: #e8eefb; overflow: hidden; margin: 10px 0 8px; }
+  .fw-bar i { position: absolute; top: 0; bottom: 0; left: -40%; width: 40%; border-radius: 4px; background: linear-gradient(90deg, #5cc6ff, #2d6cf0); animation: fwbar 1.15s ease-in-out infinite; }
+  @keyframes fwbar { from { left: -40%; } to { left: 100%; } }
+  .fw-steps div { font-size: 14px; color: #a3adc2; padding: 3px 0; }
+  .fw-steps .ok { color: #1a8a55; }
+  .fw-steps .cur { color: #1f2a44; font-weight: 800; }
+  .fw-steps .bad { color: #c2410c; font-weight: 700; }
+  .fw-slow { border: 1px solid #fde2c4; background: #fff8f0; }
+  /* v1.67: клиент заказа — поля по отдельности */
+  .cli { background: #f5f7fc; border-radius: 12px; padding: 8px 12px; margin: 4px 0 10px; }
+  .cl-r { display: flex; gap: 10px; padding: 3px 0; font-size: 13.5px; line-height: 1.35; }
+  .cl-k { flex: 0 0 100px; color: #8a94ab; font-weight: 700; font-size: 12.5px; padding-top: 1px; }
+  .cl-v { flex: 1; min-width: 0; color: #1f2a44; word-break: break-word; }
+  .cl-e { color: #c3c9d6; }
+  .cl-c { white-space: pre-wrap; display: inline-block; background: #fff4d6; color: #6b4e00; border-radius: 8px; padding: 2px 8px; }
   #heroBody { max-width: 720px; margin: 0 auto; }
   .htitle { display: flex; align-items: center; gap: 12px; padding: 12px 18px 0; font-size: 27px; font-weight: 800; letter-spacing: -.01em; }
   .htitle .hti { width: 40px; height: 40px; border-radius: 13px; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -426,7 +446,7 @@
 <script>
 (function () {
   'use strict';
-  var PAGE_VER = '1.66.0';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
+  var PAGE_VER = '1.67.0';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
   var API = 'https://api.github.com';
   /* ── v1.62: язык приложения (RU / RO). L('русский текст', {n: 5}) — перевод по
      словарю RO (ключ — сам русский текст), {n} — подстановки. Нет в словаре — по-русски. ── */
@@ -986,7 +1006,40 @@
     'Память телефона не ответила': 'Memoria telefonului nu a răspuns',
     'Перезапускаю приложение — ключ и доступ сохранятся.': 'Repornesc aplicația — cheia și accesul se păstrează.',
     '🔑 Доступ восстановлен — всё как раньше': '🔑 Acces restabilit — totul ca înainte',
-    'данные зашифрованы под другой ключ компьютера — открой свежую ссылку от владельца': 'datele sunt criptate pentru altă cheie a calculatorului — deschide un link nou de la proprietar'
+    'данные зашифрованы под другой ключ компьютера — открой свежую ссылку от владельца': 'datele sunt criptate pentru altă cheie a calculatorului — deschide un link nou de la proprietar',
+    // v1.67: поиск по коду — ход ожидания и ответ без перезагрузки
+    'Ищет компьютер (он должен быть включён) — ответ появится здесь сам, обычно за 5–15 секунд.': 'Caută calculatorul (trebuie să fie pornit) — răspunsul apare aici singur, de obicei în 5–15 secunde.',
+    'Ищу «{q}»': 'Caut «{q}»',
+    'Отправляю запрос…': 'Trimit cererea…',
+    'Нет связи — повторяю отправку…': 'Fără conexiune — repet trimiterea…',
+    'Запрос отправлен': 'Cerere trimisă',
+    'Компьютер получил запрос': 'Calculatorul a primit cererea',
+    'Компьютер получит запрос': 'Calculatorul va primi cererea',
+    'Жду, когда компьютер возьмёт запрос…': 'Aștept ca calculatorul să preia cererea…',
+    'Ищет на сайте и складе…': 'Caută pe site și în depozit…',
+    'Поиск на сайте и складе': 'Căutare pe site și în depozit',
+    'Компьютер не ответил за 3 минуты. Он включён и браузер открыт? Запрос сохранён — ответ появится здесь, когда компьютер его выполнит.': 'Calculatorul nu a răspuns în 3 minute. Este pornit și browserul deschis? Cererea e salvată — răspunsul apare aici când calculatorul o execută.',
+    'Компьютер пока не взял запрос — проверь, что он включён и браузер открыт.': 'Calculatorul încă n-a preluat cererea — verifică dacă e pornit și browserul deschis.',
+    '🔄 Проверить ещё раз': '🔄 Verifică din nou',
+    'пустой ответ': 'răspuns gol',
+    'Точного кода «{q}» на сайте нет': 'Codul exact «{q}» nu e pe site',
+    'Похожие на сайте:': 'Similare pe site:',
+    'ответ за {s} с': 'răspuns în {s} s',
+    '🔎 Ответ по «{q}» готов — он в «Поиске»': '🔎 Răspunsul pentru «{q}» e gata — vezi în «Căutare»',
+    'не найдено на сайте': 'nu s-a găsit pe site',
+    'страницы найденных товаров не открылись': 'paginile produselor găsite nu s-au deschis',
+    'сайт ответил не как обычно — попробуй ещё раз': 'site-ul a răspuns neobișnuit — încearcă din nou',
+    'пустой код': 'cod gol',
+    'нужен вход в админку на компьютере': 'e nevoie de logare în admin pe calculator',
+    'админка не ответила': 'admin-ul n-a răspuns',
+    'нет ссылки админки': 'lipsește linkul de admin',
+    // v1.67: клиент заказа — поля по отдельности
+    'Телефон': 'Telefon',
+    'Почта': 'Email',
+    'Регион': 'Raion',
+    'Город / село': 'Oraș / sat',
+    'Адрес': 'Adresa',
+    'Комментарий': 'Comentariu'
   };
   function L(s, v) {
     var t = (LANG === 'ro' && RO[s]) ? RO[s] : s;
@@ -1136,6 +1189,21 @@
   };
   document.addEventListener('input', function (e) { sSync(e.target); }, true);
   function telHref(p) { return 'tel:' + String(p || '').replace(/[^+\d]/g, ''); }
+  // v1.67: клиент заказа — каждое поле отдельно (имя, телефон, почта, регион, город/село, адрес, комментарий).
+  // Раньше «адресом» бывал комментарий: колонка «Комментарий» в админке есть только у заказа с комментарием.
+  function ordCliHtml(u) {
+    u = u || {};
+    if (!u.name && !u.phone && !u.email && !u.address && !u.comment) return '';
+    var split = u.region != null || u.city != null || u.street != null;
+    var row = function (k, v, html) { return '<div class="cl-r"><span class="cl-k">' + esc(L(k)) + '</span><span class="cl-v' + (v ? '' : ' cl-e') + '">' + (v ? (html || esc(v)) : '—') + '</span></div>'; };
+    return '<div class="cli">'
+      + row('Имя', u.name)
+      + row('Телефон', u.phone, u.phone ? '<a href="' + telHref(u.phone) + '">' + esc(u.phone) + '</a>' : '')
+      + row('Почта', u.email, u.email ? '<a href="mailto:' + esc(u.email) + '">' + esc(u.email) + '</a>' : '')
+      + (split ? row('Регион', u.region) + row('Город / село', u.city) + row('Адрес', u.street) : row('Адрес', u.address))
+      + row('Комментарий', u.comment, u.comment ? '<span class="cl-c">' + esc(u.comment) + '</span>' : '')
+      + '</div>';
+  }
   function num(v) { var n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isFinite(n) ? n : 0; }
   function agoText(ms) {
     var s = Math.floor((Date.now() - ms) / 1000);
@@ -1924,18 +1992,148 @@
     }
   };
 
-  /* ── FIND (runs on the computer; phone sends the request) ── */
+  /* ── FIND (runs on the computer; phone sends the request) ──
+     v1.67: ответ без перезагрузки. После «Найти» телефон каждые 2 с читает из главного облака маленький
+     зашифрованный файл r_<did>.json (его пишет компьютер: «получил запрос» → ответ) и показывает ход
+     и время ожидания. Результат рисуется в своём блоке #vfRes — поле ввода не пересоздаётся (раньше
+     при курсоре в поле экран не обновлялся, и казалось, что нужно перезагружать страницу). */
   var findQ = localStorage.getItem('vp_find_q') || '';
+  var FW = null;   // ожидание ответа: {oid, q, t0, st: 'send'|'sent'|'got'|'done'|'slow', err, res, tm, ck, hinted}
+  var FW_POLL = 2000, FW_SLOW = 180000, FW_HINT = 25000;
+  var _ghEt = {}, _ghNoCond = false, _fwPingAt = 0;
+  // GET с ETag: «не изменилось» (304) не тратит лимит GitHub; если условный запрос не проходит — обычный
+  function ghCond(path) {
+    var c = _ghEt[path], h = { 'Authorization': 'Bearer ' + cfg.t, 'Accept': 'application/vnd.github+json' };
+    var cond = !!(c && c.et && !_ghNoCond);
+    if (cond) h['If-None-Match'] = c.et;
+    return fetch(API + path, { method: 'GET', cache: 'no-store', headers: h }).then(function (r) {
+      if (r.status === 304 && c) return { status: 200, json: c.json, same: true };
+      return r.text().then(function (t) {
+        var j = null; try { j = JSON.parse(t); } catch (e) {}
+        var et = (r.headers && r.headers.get) ? (r.headers.get('ETag') || '') : '';
+        if (r.status === 200 && j && et) _ghEt[path] = { et: et, json: j };
+        return { status: r.status, json: j };
+      });
+    }, function (e) { if (cond) { _ghNoCond = true; return ghCond(path); } throw e; });
+  }
+  function fwAgo(ms) { var s = Math.max(0, Math.floor(ms / 1000)); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
+  function fwStop() { if (!FW) return; if (FW.tm) clearTimeout(FW.tm); if (FW.ck) clearTimeout(FW.ck); FW.tm = 0; FW.ck = 0; }
+  function fwStart(op, resumed) {
+    fwStop();
+    FW = { oid: op.oid, q: op.q || '', t0: resumed ? (+op.ts || Date.now()) : Date.now(), st: resumed ? 'sent' : 'send', err: false, res: null, tm: 0, ck: 0, hinted: false };
+    fwPaint(); fwPlan(resumed ? 50 : FW_POLL); fwClock();
+  }
+  function fwPlan(ms) {
+    if (!FW || FW.st === 'done' || FW.st === 'slow') return;
+    if (FW.tm) clearTimeout(FW.tm);
+    FW.tm = setTimeout(fwTick, ms);
+  }
+  function fwClock() {
+    if (!FW || FW.st === 'done' || FW.st === 'slow') return;
+    var el = Date.now() - FW.t0, t = document.getElementById('fwTime');
+    if (t) t.textContent = fwAgo(el);
+    if (!FW.hinted && el > FW_HINT && FW.st !== 'got') { FW.hinted = true; fwPaint(); }   // подсказка «компьютер включён?»
+    if (FW.ck) clearTimeout(FW.ck);
+    FW.ck = setTimeout(fwClock, 1000);
+  }
+  function fwTick() {
+    if (!FW) return;
+    FW.tm = 0;
+    if (FW.st === 'done' || FW.st === 'slow' || !cfg || !V3.aes) return;
+    if (document.hidden) { fwPlan(1500); return; }   // приложение свёрнуто — запросы не тратим; вернулись — продолжим
+    if (Date.now() - FW.t0 > FW_SLOW) { FW.st = 'slow'; fwStop(); fwPaint(); return; }
+    var mine = FW;
+    // запрос не ушёл (не было связи) — дописать файл устройства
+    var w = (mine.st === 'send' && mine.err) ? devWrite().then(function () { if (mine === FW && FW.st === 'send') { FW.st = 'sent'; FW.err = false; fwPaint(); } }, function () {}) : Promise.resolve();
+    w.then(function () { return ghCond('/gists/' + cfg.g); }).then(function (r) {
+      if (mine !== FW || !r || r.status !== 200 || !r.json || !r.json.files) return;
+      var f = r.json.files['r_' + V3.did + '.json'], box = null;
+      try { box = JSON.parse((f && f.content) || 'null'); } catch (e) { box = null; }
+      if (!box || !box.ct) return;
+      return boxOpen(box, 'reply').then(function (rep) {
+        var it = ((rep && rep.items) || []).filter(function (x) { return x && x.oid === mine.oid; })[0];
+        if (!it || mine !== FW) return;
+        if (it.st === 'done') fwDone(it.res || { ok: false, error: L('пустой ответ') });
+        else if (it.st === 'got' && (FW.st === 'send' || FW.st === 'sent')) { FW.st = 'got'; fwPaint(); }
+      }, function () {});
+    }).catch(function () {}).then(function () { if (mine === FW) fwPlan(FW_POLL); });
+  }
+  function fwDone(res) {
+    if (!FW) return;
+    fwStop();
+    if (res && !res.at) res.at = Date.now();
+    FW.st = 'done'; FW.res = res;
+    if (state) state.find = res;   // «задача» / «вес» по найденному — с этим ответом
+    // запрос выполнен — его (и прежние поиски) из очереди убираем: компьютер их уже отметил
+    var qq = opsQueue(), idx = -1;
+    qq.forEach(function (o, i) { if (o.op === 'findProduct' && o.oid === FW.oid) idx = i; });
+    if (idx >= 0) opsSave(qq.filter(function (o, i) { return !(o.op === 'findProduct' && i <= idx); }));
+    fwPaint();
+    if (tab !== 'find') toast(L('🔎 Ответ по «{q}» готов — он в «Поиске»', { q: FW.q }));   // ушли с экрана поиска, пока ждали
+  }
+  function fwPaint() {
+    if (tab !== 'find') return;
+    var el = document.getElementById('vfRes');
+    if (el) el.innerHTML = vfResHtml();
+  }
+  // открыли «Поиск» — короткая запись файла устройства: компьютер заметит и начнёт проверять облако чаще
+  function fwPing() {
+    if (Date.now() - _fwPingAt < 90000 || !cfg || !V3.aes || V3.st !== 'ok') return;
+    _fwPingAt = Date.now();
+    if (Date.now() - (+lsGet('vp_wrote') || 0) > 90000) devWrite().catch(function () {});
+  }
+  function vfLast() {
+    var a = (FW && FW.st === 'done') ? FW.res : null, b = (state && state.find) || null;
+    if (a && b) return (b.at || 0) > (a.at || 0) ? b : a;
+    return a || b;
+  }
+  function fwCardHtml() {
+    var el = Date.now() - FW.t0, slow = FW.st === 'slow', st = FW.st;
+    var s1 = st === 'send' ? (FW.err ? '<div class="bad">⚠ ' + esc(L('Нет связи — повторяю отправку…')) + '</div>' : '<div class="cur">⏳ ' + esc(L('Отправляю запрос…')) + '</div>') : '<div class="ok">✓ ' + esc(L('Запрос отправлен')) + '</div>';
+    var s2 = st === 'got' ? '<div class="ok">✓ ' + esc(L('Компьютер получил запрос')) + '</div>' : (st === 'send' ? '<div>' + esc(L('Компьютер получит запрос')) + '</div>' : '<div class="cur">⏳ ' + esc(L('Жду, когда компьютер возьмёт запрос…')) + '</div>');
+    var s3 = st === 'got' ? '<div class="cur">⏳ ' + esc(L('Ищет на сайте и складе…')) + '</div>' : '<div>' + esc(L('Поиск на сайте и складе')) + '</div>';
+    var hint = slow ? L('Компьютер не ответил за 3 минуты. Он включён и браузер открыт? Запрос сохранён — ответ появится здесь, когда компьютер его выполнит.')
+      : (st !== 'got' && el > FW_HINT ? L('Компьютер пока не взял запрос — проверь, что он включён и браузер открыт.') : '');
+    return '<div class="card' + (slow ? ' fw-slow' : '') + '" id="fwCard" style="margin-top:10px;">'
+      + '<div class="fw-top">' + (slow ? '<span>⚠️</span>' : '<span class="fw-spin"></span>') + '<b>' + esc(L('Ищу «{q}»', { q: FW.q })) + '</b><span class="fw-time" id="fwTime">' + fwAgo(el) + '</span></div>'
+      + (slow ? '' : '<div class="fw-bar"><i></i></div>')
+      + '<div class="fw-steps">' + s1 + s2 + s3 + '</div>'
+      + (hint ? '<div class="meta" style="margin-top:6px;">' + esc(hint) + '</div>' : '')
+      + (slow ? '<div class="row"><button class="b b-edit" style="flex:1;" onclick="vfRetry()">' + esc(L('🔄 Проверить ещё раз')) + '</button></div>' : '')
+      + '</div>';
+  }
+  function vfResHtml() {
+    if (FW && FW.st !== 'done') return fwCardHtml();
+    var f = vfLast();
+    return (f && f.at) ? vfResultCard(f) : '';
+  }
+  window.vfRetry = function () {
+    if (!FW) return;
+    FW.st = FW.err ? 'send' : 'sent'; FW.t0 = Date.now(); FW.hinted = false;
+    if (FW.st === 'sent') sendOps();
+    fwPaint(); fwPlan(50); fwClock();
+  };
   function renderFind(box) {
-    var f = (state && state.find) || null;
-    var pendingOp = opsQueue().filter(function (o) { return o.op === 'findProduct'; }).pop();
+    // приложение закрыли и открыли во время ожидания — ждём дальше тот же запрос (заново не шлём)
+    if (!FW) { var po = opsQueue().filter(function (o) { return o.op === 'findProduct'; }).pop(); if (po && Date.now() - (+po.ts || 0) < 10 * 60000) fwStart(po, true); }
+    fwPing();
     var h = '<div class="sec">' + esc(L('Поиск товара по коду')) + '</div>';
     h += '<div style="display:flex;gap:8px;align-items:center;">' + sField('<input class="search" style="margin:0;" id="vfQ" placeholder="' + esc(L('Код, напр. 21.1907')) + '" value="' + esc(findQ) + '" onkeydown="if(event.key===\'Enter\')vfSend()">', findQ, 'margin:0;flex:1;min-width:0;') + '<button class="chip on" style="margin:0;" onclick="vfSend()">' + esc(L('Найти')) + '</button></div>';
-    h += '<div class="note">' + esc(L('Ищет компьютер (должен быть включён): результат придёт в течение минуты — обнови 🔄.')) + '</div>';
-    if (pendingOp) h += '<div class="card" style="margin-top:10px;"><b>' + esc(L('⏳ Компьютер ищет «{q}»…', { q: pendingOp.q || '' })) + '</b><div class="meta">' + esc(L('обнови страницу через минуту')) + '</div></div>';
-    if (f && f.at && !pendingOp) {
+    h += '<div class="note">' + esc(L('Ищет компьютер (он должен быть включён) — ответ появится здесь сам, обычно за 5–15 секунд.')) + '</div>';
+    h += '<div id="vfRes">' + vfResHtml() + '</div>';
+    box.innerHTML = h;
+  }
+  function vfResultCard(f) {
+    var h = '';
+    {
       if (!f.ok) {
-        h += '<div class="card" style="margin-top:10px;"><b>✗ «' + esc(f.q || '') + '»</b><div class="meta">' + esc(f.error || L('не найдено')) + ' · ' + agoText(f.at) + '</div></div>';
+        var oth = Array.isArray(f.others) ? f.others : [];
+        var why = oth.length ? L('Точного кода «{q}» на сайте нет', { q: f.q || '' }) : L(f.error || 'не найдено');
+        h += '<div class="card" style="margin-top:10px;"><b>✗ «' + esc(f.q || '') + '»</b><div class="meta">' + esc(why) + ' · ' + agoText(f.at) + '</div>'
+          + (oth.length ? '<div class="meta" style="margin-top:6px;">' + esc(L('Похожие на сайте:')) + '<br>' + oth.map(function (o) {
+            return '🏷 <b>' + esc(o.code || '') + '</b> · <a href="' + esc(o.url || '') + '" target="_blank">' + esc(o.name || o.code || '') + ' ↗</a>';
+          }).join('<br>') + '</div>' : '')
+          + '</div>';
       } else {
         var badge = f.inStock === true ? '<span class="badge bg-in">' + esc(L('✓ Есть в наличии')) + '</span>'
           : f.inStock === false ? '<span class="badge bg-out">' + esc(L('✗ Нет (на заказ)')) + '</span>'
@@ -1952,26 +2150,32 @@
         h += '<div class="card" style="margin-top:10px;">' + badge
           + '<div class="ttl">' + esc(f.name || '') + '</div>'
           + '<div class="meta">🏷 ' + esc(f.code || '') + (f.price ? ' &nbsp;·&nbsp; 💰 <b>' + esc(f.price) + '</b>' : '') + '<br>'
-          + '🏭 ' + esc(L('Склад')) + ': ' + (f.qty != null ? '<b>' + esc(String(f.qty)) + ' ' + esc(L('шт')) + '</b>' : esc(f.admNote || '—')) + (f.admChecked != null ? ' · ' + esc(L('галочка')) + ': ' + (f.admChecked ? '✓' : '✗') : '') + '<br>'
+          + '🏭 ' + esc(L('Склад')) + ': ' + (f.qty != null ? '<b>' + esc(String(f.qty)) + ' ' + esc(L('шт')) + '</b>' : esc(f.admNote ? L(f.admNote) : '—')) + (f.admChecked != null ? ' · ' + esc(L('галочка')) + ': ' + (f.admChecked ? '✓' : '✗') : '') + '<br>'
           + wHtml + '<br>'
           + '🔗 <a href="' + esc(f.urlRu || '') + '" target="_blank">RU ↗</a> · <a href="' + esc(f.urlRo || '') + '" target="_blank">RO ↗</a>'
-          + ' <span style="color:#bbb;">· ' + esc(L('данные')) + ' ' + agoText(f.at) + '</span></div>'
+          + ' <span style="color:#bbb;">· ' + esc(L('данные')) + ' ' + agoText(f.at) + (f.ms ? ' · ' + esc(L('ответ за {s} с', { s: Math.max(1, Math.round(f.ms / 1000)) })) : '') + '</span></div>'
           + (can('tasks') ? '<div class="row"><button class="b b-edit" style="flex:1;" onclick="vfTask(false)">' + esc(L('➕ Задача')) + '</button><button class="b b-done" onclick="vfTask(true)">' + esc(L('🔔 Следить')) + '</button></div>' : '')
           + '</div>';
       }
     }
-    box.innerHTML = h;
+    return h;
   }
   window.vfSend = function () {
-    var q = ((document.getElementById('vfQ') || {}).value || '').trim();
+    var inp = document.getElementById('vfQ');
+    var q = ((inp || {}).value || '').trim();
     if (!q) { toast(L('⚠ Впиши код товара')); return; }
     findQ = q; try { localStorage.setItem('vp_find_q', q); } catch (e) {}
-    opPush({ op: 'findProduct', q: q });
+    if (inp) { try { inp.blur(); } catch (e) {} }   // клавиатура закрывается — ход и ответ видны целиком
+    var op = { op: 'findProduct', q: q, oid: 'o' + Date.now() + Math.floor(Math.random() * 10000), ts: Date.now() };
+    var qq = opsQueue(); qq.push(op); opsSave(qq);
+    fwStart(op, false);
     render();
-    toast(L('🔎 Запрос отправлен — компьютер найдёт и пришлёт'));
+    devWrite().then(function () { if (FW && FW.oid === op.oid && FW.st === 'send') { FW.st = 'sent'; FW.err = false; fwPaint(); } },
+      function () { if (FW && FW.oid === op.oid && FW.st === 'send') { FW.err = true; fwPaint(); } });
   };
+  window.__veFW = function () { return FW; };   // для проверок
   window.vfWt = function () {
-    var f = (state && state.find) || null;
+    var f = vfLast();
     if (!f || !f.ok) return;
     var cur = ((state && state.weights) || []).find(function (x) { return x && String(x.code) === String(f.code); });
     var v = prompt(L('Вес «{n}», кг:', { n: f.name || f.code }), cur ? String(cur.weight) : '');
@@ -1986,7 +2190,7 @@
     toast(L('⚖️ Вес отправлен — на компьютере появится в базе весов'));
   };
   window.vfTask = function (watch) {
-    var f = (state && state.find) || null;
+    var f = vfLast();
     if (!f || !f.ok) return;
     openEdit(null);
     document.getElementById('fTitle').value = (watch ? 'De sunat când apare: ' : '') + (f.name || '');
@@ -2261,10 +2465,10 @@
     var detHtml = '';
     if (open) {
       var d = details[o.id];
+      if (d && d.user) detHtml += ordCliHtml(d.user);   // v1.67: клиент — каждое поле отдельно
       if (d && d.items && d.items.length) {
         var total = 0, gmap = {};
         if (g) g.items.forEach(function (gi) { if (gi.code) gmap[String(gi.code)] = gi; });
-        detHtml += (d.user && d.user.address ? '<div class="meta">📍 ' + esc(d.user.address) + '</div>' : '');
         if (g) detHtml += '<div class="meta" style="color:#a61e4d;font-weight:800;">🧩 ' + esc(L('Состав заказа: что есть и чего не хватает')) + '</div>';
         detHtml += d.items.map(function (it) {
           var sum = num(it.price) * num(it.qty); total += sum;
@@ -3393,6 +3597,8 @@
     if (errs.length) setTimeout(function () { toast(L('⚠ Не записалось') + ': ' + errs.join('; ')); }, 300);
     var q = opsQueue().filter(function (o) { return !confirmed[o.oid] && !(state.opErr || {})[o.oid]; });
     opsSave(q);
+    // v1.67: ответ на «найти» пришёл и в снимке (раньше, чем телефон прочёл файл ответа)
+    if (FW && FW.st !== 'done' && state.find && state.find.reqOid === FW.oid) fwDone(state.find);
     // визиты, которые компьютер уже записал, — убрать
     var sa = (state.me && state.me.seenAt) || 0;
     if (sa) { var v = visits().filter(function (x) { return x.at > sa; }); try { localStorage.setItem('vp_visits', JSON.stringify(v)); } catch (e) {} }
@@ -3752,6 +3958,7 @@
   window.__veState = function () { return state; };
   document.addEventListener('visibilitychange', function () {
     if (document.hidden || !cfg || !V3.aes) return;
+    if (FW && FW.st !== 'done' && FW.st !== 'slow') fwPlan(50);   // v1.67: вернулись в приложение — сразу проверить ответ
     noteVisit().then(function (fresh) { if (fresh) devWrite().catch(function () {}); });
     if (Date.now() - _lastRef > 8000) window.refresh(true);
     // Вернулись после звонка клиенту по заявке — сразу лист «что получилось».
