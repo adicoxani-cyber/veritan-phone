@@ -295,6 +295,29 @@
   .frow .fsrc { color: #8a93ad; font-size: 12px; }
   .frow.fpay { font-weight: 800; }
   .frow.fpay.vol { color: #c2410c; }
+  /* ── v1.64: «Устройства и доступ» (владелец): запросы, роли, закрыть доступ ── */
+  .dcard { background: #fff; border: 1px solid #e6eaf3; border-radius: 16px; padding: 12px 14px; margin-bottom: 10px; }
+  .dcard.wait { border: 2px solid #ff9500; box-shadow: 0 4px 14px rgba(255,149,0,.14); }
+  .dcard.off { background: #fafbfd; }
+  .dcard.focus { box-shadow: 0 0 0 3px rgba(36,98,245,.35); }
+  .dtop { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .dtop b { font-size: 15px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dtop .pill { flex-shrink: 0; }
+  .dkey { margin-top: 8px; background: #fff8e6; border-radius: 10px; padding: 8px 10px; font-size: 12.5px; color: #7a5b00; line-height: 1.4; }
+  .dkey b { font-family: Menlo, monospace; font-size: 17px; letter-spacing: .12em; color: var(--ink); margin: 0 4px; }
+  .dlbl { font-size: 11.5px; font-weight: 800; color: #8a93ad; text-transform: uppercase; letter-spacing: .05em; margin: 12px 2px 7px; }
+  .droles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+  .drole { text-align: left; border: 1.5px solid #e2e7f1; background: #f7f9fd; border-radius: 14px; padding: 10px 11px; font-family: inherit; color: var(--ink); display: flex; flex-direction: column; gap: 3px; min-height: 74px; }
+  .drole .rt { font-size: 14px; font-weight: 800; }
+  .drole .rd { font-size: 11.5px; color: #6b7590; line-height: 1.35; }
+  .drole.on { border-color: var(--pri); background: #eef3ff; }
+  .drow { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .drow .chip { margin: 0; }
+  .drow .chip.dno { color: #c62828; }
+  .dpend { margin-top: 10px; background: #eef3ff; color: #233a74; border-radius: 10px; padding: 9px 11px; font-size: 12.5px; font-weight: 700; line-height: 1.4; }
+  .dvis { margin-top: 8px; font-size: 12.5px; color: #5a6684; }
+  .dvis summary { font-weight: 800; padding: 8px 2px; color: var(--ink); }
+  .dvis .vr { padding: 6px 2px; border-bottom: 1px solid #f0f2f7; line-height: 1.4; }
 </style>
 </head>
 <body>
@@ -379,11 +402,14 @@
 <!-- Настройки -->
 <div class="sheet" id="cfgSheet"><div id="cfgBody"></div></div>
 
+<!-- v1.64: владелец — устройства и доступ (разрешить запрос с ролью, сменить роль, закрыть доступ) -->
+<div class="sheet" id="devSheet"><div id="devBody"></div></div>
+
 <div class="toast" id="toast"></div>
 <script>
 (function () {
   'use strict';
-  var PAGE_VER = '1.63.2';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
+  var PAGE_VER = '1.64.0';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
   var API = 'https://api.github.com';
   /* ── v1.62: язык приложения (RU / RO). L('русский текст', {n: 5}) — перевод по
      словарю RO (ключ — сам русский текст), {n} — подстановки. Нет в словаре — по-русски. ── */
@@ -524,7 +550,6 @@
     'Дособрать: не хватает {n} из {t}': 'De completat: lipsesc {n} din {t}',
     'Доставка (цена или срок)': 'Livrare (preț sau termen)',
     'Доступ': 'Acces',
-    'доступ есть': 'are acces',
     'Доступ закрыт': 'Acces închis',
     'доступ к облаку отозван — нужна новая ссылка': 'accesul la cloud a fost retras — trebuie un link nou',
     'Другое': 'Altceva',
@@ -537,7 +562,6 @@
     'ещё не проверялось': 'încă nu s-a verificat',
     'ждём разрешения': 'așteptăm permisiunea',
     'Ждём разрешения владельца': 'Așteptăm permisiunea proprietarului',
-    'ждёт': 'așteaptă',
     'ждёт в отделении': 'așteaptă la oficiu',
     'Ждёт поставку': 'Așteaptă livrarea',
     'завтра': 'mâine',
@@ -555,7 +579,6 @@
     'Заказ принят': 'Comandă primită',
     'Заказов нет': 'Nu sunt comenzi',
     'Заказы': 'Comenzi',
-    'закрыт': 'închis',
     'Закрытые': 'Închise',
     'Закрытые (последние)': 'Închise (ultimele)',
     'Заметка': 'Notiță',
@@ -691,7 +714,6 @@
     'просил(а)': 'a cerut',
     'пусто = уведомить при появлении': 'gol = anunță la apariție',
     'Раз в день': 'O dată pe zi',
-    'Разрешить, закрыть доступ и выбрать права — в расширении на компьютере.': 'Permiterea, închiderea accesului și drepturile — în extensie, pe calculator.',
     'Результат ({t})': 'Rezultat ({t})',
     'с {t}': 'din {t}',
     'Сверхвес {n} кг × {r}': 'Supragreutate {n} kg × {r}',
@@ -869,7 +891,50 @@
     'габариты из базы весов': 'dimensiuni din baza de greutăți',
     'К оплате — по объёмному весу': 'De plată — după greutatea volumetrică',
     'К оплате — по физическому весу': 'De plată — după greutatea fizică',
-    'К оплате (округлено)': 'De plată (rotunjit)'
+    'К оплате (округлено)': 'De plată (rotunjit)',
+    // v1.64: владелец — устройства и доступ с телефона
+    'Менеджер': 'Manager',
+    'Курьер': 'Curier',
+    'Владелец': 'Proprietar',
+    'заказы и статусы, звонки, задачи, наличие, веса, FAN, проверка': 'comenzi și statusuri, apeluri, sarcini, stoc, greutăți, FAN, verificare',
+    'заказы (просмотр), задачи, наличие, веса, FAN, проверка': 'comenzi (vizualizare), sarcini, stoc, greutăți, FAN, verificare',
+    'заказы (просмотр), FAN, поиск товара': 'comenzi (vizualizare), FAN, căutare produs',
+    'всё, плюс устройства и доступ': 'tot, plus dispozitive și acces',
+    'Свои права': 'Drepturi proprii',
+    'закрыть доступ': 'închide accesul',
+    'разрешить как «{r}»': 'permite ca «{r}»',
+    'роль «{r}»': 'rolul «{r}»',
+    'Отправлено: {w}. Компьютер применит в течение минуты.': 'Trimis: {w}. Calculatorul aplică într-un minut.',
+    'Устройства и доступ': 'Dispozitive și acces',
+    'Компьютер давно не на связи — команды применятся, когда он включится.': 'Calculatorul nu e conectat de mult — comenzile se aplică când pornește.',
+    'Устройств пока нет': 'Încă nu sunt dispozitive',
+    '👣 Кто заходил — последние {n}': '👣 Cine a intrat — ultimele {n}',
+    'Новое устройство появляется здесь, когда сотрудник откроет ссылку и введёт имя. Сверь код на его экране с кодом здесь. «Свои права» по галочкам — в расширении на компьютере.': 'Un dispozitiv nou apare aici când angajatul deschide linkul și scrie numele. Compară codul de pe ecranul lui cu cel de aici. «Drepturi proprii» pe bife — în extensie, pe calculator.',
+    'это устройство': 'acest dispozitiv',
+    'доступ закрыт': 'acces închis',
+    'ждёт разрешения': 'așteaptă permisiunea',
+    'просит доступ {t}': 'cere acces {t}',
+    'был(а) {t}': 'ultima dată {t}',
+    'Код': 'Cod',
+    '— сверь с экраном его телефона': '— compară cu ecranul telefonului lui',
+    'Сменить роль': 'Schimbă rolul',
+    '⛔ Закрыть доступ': '⛔ Închide accesul',
+    'Разрешить как:': 'Permite ca:',
+    'Вернуть доступ как:': 'Redă accesul ca:',
+    '⛔ Отклонить': '⛔ Respinge',
+    'Разрешить доступ «{n}» (код {c}) как «{r}»?': 'Permiți accesul pentru «{n}» (cod {c}) ca «{r}»?',
+    'Сменить роль «{n}» на «{r}»?': 'Schimbi rolul pentru «{n}» în «{r}»?',
+    'Владелец видит всё и сам разрешает устройства и меняет роли.': 'Proprietarul vede tot și aprobă singur dispozitivele și rolurile.',
+    'Отклонить запрос «{n}»? Устройство не получит доступ (передумаешь — «Вернуть доступ» здесь же).': 'Respingi cererea «{n}»? Dispozitivul nu primește acces (dacă te răzgândești — «Redă accesul» tot aici).',
+    'Закрыть доступ «{n}»? Данные на нём удалятся, команды с него выполняться не будут.': 'Închizi accesul pentru «{n}»? Datele de pe el se șterg, comenzile lui nu se mai execută.',
+    '✓ Отправлено — компьютер применит в течение минуты': '✓ Trimis — calculatorul aplică într-un minut',
+    '📱 Ждут разрешения: {n} — открыть': '📱 Așteaptă permisiunea: {n} — deschide',
+    '👑 Устройства и доступ': '👑 Dispozitive și acces',
+    'Разрешить запрос, выбрать роль или закрыть доступ можно прямо здесь — компьютер применит в течение минуты.': 'Poți aproba cererea, alege rolul sau închide accesul chiar de aici — calculatorul aplică într-un minut.',
+    '📱 Просит доступ: «{n}»': '📱 Cere acces: «{n}»',
+    '📱 Просят доступ: {n}': '📱 Cer acces: {n}',
+    'Сверь код и выбери роль — или отклони': 'Compară codul și alege rolul — sau respinge',
+    'просит доступ · код {c}': 'cere acces · cod {c}'
   };
   function L(s, v) {
     var t = (LANG === 'ro' && RO[s]) ? RO[s] : s;
@@ -984,7 +1049,8 @@
       if (isStandalone()) { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} }
     }
     var tm = h.match(/[#&]tab=([a-z]+)/); if (tm) tab = tm[1];   // открыли из уведомления
-    var im = h.match(/[#&]id=(\d+)/); if (tm && tm[1] === 'orders' && im) ordFocus = parseInt(im[1], 10) || 0;   // …на конкретном заказе
+    var im = h.match(/[#&]id=([A-Za-z0-9_-]+)/); if (tm && tm[1] === 'orders' && im) ordFocus = parseInt(im[1], 10) || 0;   // …на конкретном заказе
+    if (tm && tm[1] === 'devs') { tab = 'home'; _devsAfterLoad = im ? im[1] : '*'; }   // v1.64: «просит доступ» → окно устройств на этом запросе
     try { cfg = JSON.parse(localStorage.getItem('vp_cfg') || 'null'); } catch (e) { cfg = null; }
     if (cfg && cfg.v !== 3) { legacyCfg = true; cfg = null; }
     if (cfg && (!cfg.t || !cfg.g || !cfg.c)) cfg = null;
@@ -1449,7 +1515,7 @@
     if (l !== 'ru' && l !== 'ro') return;
     try { localStorage.setItem('vp_lang', l); } catch (e) {}
     LANG = l; L.ro = l === 'ro';
-    applyStatic(); render(); cfgPaint();
+    applyStatic(); render(); cfgPaint(); devPaint();
     if (V3.aes && V3.st) devWrite().catch(function () {});   // компьютер шлёт уведомления на языке устройства
   };
   window.cfgPaste = function (id) {
@@ -1627,6 +1693,10 @@
     // стеклянные карточки: заказы, звонки, посылки / «дособрать», проверка кодов
     var cards = [];
     var gc = function (title, sub, act, alert) { return '<button class="gcard' + (alert ? ' alert' : '') + '" onclick="' + act + '"><div class="gt">' + esc(title) + '</div>' + (sub ? '<div class="gs">' + esc(sub) + '</div>' : '') + '</button>'; };
+    // v1.64: владельцу — кто просит доступ (первой карточкой)
+    var dw = devsWait();
+    if (dw.length) cards.push(gc(dw.length === 1 ? L('📱 Просит доступ: «{n}»', { n: devLabel(dw[0]) }) : L('📱 Просят доступ: {n}', { n: dw.length }),
+      L('Сверь код и выбери роль — или отклони'), 'openDevs(\'' + (dw.length === 1 ? esc(dw[0].did) : '') + '\')', true));
     if (can('orders')) {
       var pend = ordPendStatus();
       var first = ((state && state.orders) || []).filter(function (o) { return (pend[o.id] ? ordRoleOfValue(pend[o.id]) : phRole(o.status)) === 'new'; })[0];
@@ -1685,7 +1755,13 @@
   function bellHot() {
     if (!state) return 0;
     var now = Date.now();
-    return fdToday().filter(function (it) { return (it.at && it.at <= now) || it.sev === 'red' || (it.kind === 'feed' && it.why === 'none'); }).length;
+    return fdToday().filter(function (it) { return (it.at && it.at <= now) || it.sev === 'red' || (it.kind === 'feed' && it.why === 'none'); }).length + devsWait().length;
+  }
+  // v1.64: запросы доступа — строками в колокольчике (владельцу)
+  function devBellHtml() {
+    return devsWait().map(function (d) {
+      return '<div class="tline red"><div class="tx"><b>📱 ' + esc(devLabel(d)) + '</b><br>' + esc(L('просит доступ · код {c}', { c: devCode(d.did) })) + '</div><button onclick="openDevs(\'' + esc(d.did) + '\')">›</button></div>';
+    }).join('');
   }
   function bellPaint() {
     var d = document.getElementById('bellDot'); if (!d) return;
@@ -1693,9 +1769,9 @@
     d.textContent = n > 99 ? '99+' : String(n); d.style.display = n ? 'block' : 'none';
   }
   window.openBell = function () {
-    var now = Date.now(), items = state ? fdToday() : [];
-    document.getElementById('bellBody').innerHTML = items.length ? items.map(function (it) { return fdTodayCard(it, now); }).join('')
-      : '<div class="empty">' + esc(L('Дел на сегодня нет — всё спокойно 🎉')) + '</div>';
+    var now = Date.now(), items = state ? fdToday() : [], dh = state ? devBellHtml() : '';
+    document.getElementById('bellBody').innerHTML = dh + (items.length ? items.map(function (it) { return fdTodayCard(it, now); }).join('')
+      : (dh ? '' : '<div class="empty">' + esc(L('Дел на сегодня нет — всё спокойно 🎉')) + '</div>'));
     document.getElementById('sheetBg').style.display = 'block';
     document.getElementById('bellSheet').style.display = 'block';
   };
@@ -3098,6 +3174,9 @@
     if (ban) ban.style.display = (state.appVer && state.appVer !== PAGE_VER) ? 'block' : 'none';
     // компьютер не знает о подписке (сбросили на нём) — дошлём
     if (_pushSub && pushPref().on && state.me && !state.me.push) devWrite().catch(function () {});
+    // v1.64: окно «Устройства» открыто — освежить; открыли из уведомления «просит доступ» — открыть его
+    devPaint();
+    if (_devsAfterLoad && can('admin')) { var dl = _devsAfterLoad; _devsAfterLoad = null; setTimeout(function () { openDevs(dl === '*' ? '' : dl); }, 0); }
     // человек печатает в поле (поиск, код) — не пересоздаём экран: обновим, когда уйдёт из поля
     if (typingNow()) { _renderLater = true; softRender(); navPaint(); bellPaint(); return; }
     setTab(tab);
@@ -3190,15 +3269,12 @@
     if (me) h += '<div class="kv"><span>' + esc(L('Доступ')) + '</span><span>' + esc((me.perms || []).map(function (p) { return L(PERM_T[p] || p); }).join(', ') || '—') + '</span></div>';
     h += '<div class="kv"><span>' + esc(L('Версия')) + '</span><span>' + esc(PAGE_VER) + (state && state.appVer && state.appVer !== PAGE_VER ? ' → ' + esc(state.appVer) : '') + '</span></div>';
     h += '<div class="note">' + esc(L('Связь с компьютером зашифрована ключом этого устройства. Доступ выдаёт и закрывает владелец в расширении.')) + '</div>';
-    // владельцу: кто заходит
+    // v1.64: владельцу — устройства и доступ (отдельное окно: запросы, роли, закрыть доступ)
     if (state && state.devs && can('admin')) {
+      var wN = devsWait().length;
       h += '<div class="lbl">' + esc(L('Устройства ({n})', { n: state.devs.length })) + '</div>';
-      h += state.devs.slice().sort(function (a, b) { return (b.last || 0) - (a.last || 0); }).map(function (d) {
-        var st = d.st === 'ok' ? '<span class="pill bg-in">' + esc(L('доступ есть')) + '</span>' : d.st === 'off' ? '<span class="pill bg-out">' + esc(L('закрыт')) + '</span>' : '<span class="pill bg-unk">' + esc(L('ждёт')) + '</span>';
-        return '<div class="kv" style="display:block;"><div style="display:flex;justify-content:space-between;gap:8px;"><b>' + esc(d.nm || d.md || d.did) + '</b>' + st + '</div>'
-          + '<div class="note" style="margin-top:3px;">' + esc([d.md, [d.ci, d.co].filter(Boolean).join(', '), d.ip, d.last ? agoText(d.last) : ''].filter(Boolean).join(' · ')) + (d.push ? ' · 🔔' : '') + '</div></div>';
-      }).join('');
-      h += '<div class="note">' + esc(L('Разрешить, закрыть доступ и выбрать права — в расширении на компьютере.')) + '</div>';
+      h += '<button class="' + (wN ? 'save' : 'ghost') + '" style="margin-top:4px;" onclick="openDevs()">' + esc(wN ? L('📱 Ждут разрешения: {n} — открыть', { n: wN }) : L('👑 Устройства и доступ')) + '</button>';
+      h += '<div class="note">' + esc(L('Разрешить запрос, выбрать роль или закрыть доступ можно прямо здесь — компьютер применит в течение минуты.')) + '</div>';
     }
     h += '<div class="lbl">' + esc(L('Новая ссылка от владельца')) + '</div><textarea class="inp" id="cLink" rows="2" style="font-size:14px;" placeholder="https://…#v3=…"></textarea>'
       + '<button class="ghost" onclick="cfgPaste(\'cLink\')">' + esc(L('Подключить по ссылке')) + '</button>';
@@ -3223,7 +3299,122 @@
     document.getElementById('cfgSheet').style.display = 'block';
     cfgPaint();
   };
-  window.closeSheets = function () { ['sheetBg', 'editSheet', 'cfgSheet', 'feedSheet', 'moreSheet', 'bellSheet'].forEach(function (i) { var el = document.getElementById(i); if (el) { el.style.display = 'none'; el.style.translate = ''; } }); fdSel = null; };
+
+  /* ── v1.64: «Устройства и доступ» — владельцу прямо на телефоне: запрос нового устройства
+     (сверить код, выбрать роль → разрешить; или отклонить), сменить роль, закрыть или вернуть
+     доступ. Команда devSet уходит на компьютер: его фон проверяет, что она от устройства
+     с правом владельца, и применяет в течение минуты — как кнопки в расширении.
+     Своё устройство здесь не меняется; «свои права» по галочкам — только на компьютере. ── */
+  var ROLES = [
+    { k: 'manager', ic: '👔', t: 'Менеджер', d: 'заказы и статусы, звонки, задачи, наличие, веса, FAN, проверка' },
+    { k: 'warehouse', ic: '📦', t: 'Склад', d: 'заказы (просмотр), задачи, наличие, веса, FAN, проверка' },
+    { k: 'courier', ic: '🚚', t: 'Курьер', d: 'заказы (просмотр), FAN, поиск товара' },
+    { k: 'owner', ic: '👑', t: 'Владелец', d: 'всё, плюс устройства и доступ' }
+  ];
+  var devRoleOpen = {}, devFocus = '', _devsAfterLoad = null;
+  function roleName(k) { var r = ROLES.filter(function (x) { return x.k === k; })[0]; return r ? r.ic + ' ' + L(r.t) : '⚙️ ' + L('Свои права'); }
+  function devCode(did) { return String(did || '').slice(0, 6).toUpperCase(); }
+  function devList() { return (state && state.devs) || []; }
+  function devById(did) { return devList().filter(function (d) { return d && d.did === did; })[0] || null; }
+  function devLabel(d) { return (d && (d.nm || d.md)) || ('#' + devCode(d && d.did)); }
+  // команда этому устройству, которую компьютер ещё не подтвердил
+  function devPend(did) { var q = opsQueue().filter(function (o) { return o.op === 'devSet' && o.did === did; }); return q.length ? q[q.length - 1] : null; }
+  // запросы, по которым владелец ещё ничего не решал (для главной и колокольчика)
+  function devsWait() { return can('admin') ? devList().filter(function (d) { return d && d.st === 'wait' && !devPend(d.did); }) : []; }
+  function devPendText(o) {
+    var p = o.patch || {};
+    var w = p.st === 'off' ? L('закрыть доступ') : p.st === 'ok' ? L('разрешить как «{r}»', { r: roleName(p.role) }) : L('роль «{r}»', { r: roleName(p.role) });
+    return L('Отправлено: {w}. Компьютер применит в течение минуты.', { w: w });
+  }
+  window.openDevs = function (did) {
+    if (!state || !can('admin')) return;
+    closeSheets();
+    devFocus = did || '';
+    document.getElementById('sheetBg').style.display = 'block';
+    document.getElementById('devSheet').style.display = 'block';
+    devPaint();
+    var el = devFocus && document.getElementById('dev-' + devFocus);
+    if (el && el.scrollIntoView) { try { el.scrollIntoView({ block: 'nearest' }); } catch (e) {} }
+  };
+  function devPaint() {
+    var el = document.getElementById('devBody'), sh = document.getElementById('devSheet');
+    if (!el || !sh || sh.style.display !== 'block') return;
+    var my = (state && state.me && state.me.did) || V3.did, rank = { wait: 0, ok: 1, off: 2 };
+    var list = devList().filter(Boolean).slice().sort(function (a, b) {
+      return ((rank[a.st] != null ? rank[a.st] : 3) - (rank[b.st] != null ? rank[b.st] : 3)) || (a.st === 'wait' ? (b.first || 0) - (a.first || 0) : (b.last || 0) - (a.last || 0));
+    });
+    var h = '<h3>' + esc(L('Устройства и доступ')) + '</h3>';
+    if (state && state.updatedAt && Date.now() - state.updatedAt > 20 * 60000) h += '<div class="err">' + esc(L('Компьютер давно не на связи — команды применятся, когда он включится.')) + '</div>';
+    if (!list.length) h += '<div class="empty">' + esc(L('Устройств пока нет')) + '</div>';
+    h += list.map(function (d) { return devCard(d, d.did === my); }).join('');
+    var vis = ((state && state.visits) || []).slice().reverse();
+    if (vis.length) h += '<details class="dvis"><summary>' + esc(L('👣 Кто заходил — последние {n}', { n: vis.length })) + '</summary>' + vis.map(function (v) {
+      var d = devById(v.did);
+      return '<div class="vr"><b>' + esc(d ? devLabel(d) : (v.nm || '#' + devCode(v.did))) + '</b> · ' + esc(agoText(v.at)) + '<br>' + esc([[v.ci, v.co].filter(Boolean).join(', '), v.ip ? 'IP ' + v.ip : ''].filter(Boolean).join(' · ') || '—') + '</div>';
+    }).join('') + '</details>';
+    h += '<div class="note">' + esc(L('Новое устройство появляется здесь, когда сотрудник откроет ссылку и введёт имя. Сверь код на его экране с кодом здесь. «Свои права» по галочкам — в расширении на компьютере.')) + '</div>';
+    el.innerHTML = h;
+  }
+  function devCard(d, mine) {
+    var id = esc(d.did), p = devPend(d.did), wait = d.st === 'wait';
+    var pill = mine ? '<span class="pill bg-in">' + esc(L('это устройство')) + '</span>'
+      : d.st === 'ok' ? '<span class="pill bg-in">' + esc(roleName(d.role)) + '</span>'
+      : d.st === 'off' ? '<span class="pill bg-out">' + esc(L('доступ закрыт')) + '</span>'
+      : '<span class="pill bg-unk">' + esc(L('ждёт разрешения')) + '</span>';
+    var when = wait ? (d.first ? L('просит доступ {t}', { t: agoText(d.first) }) : '') : (d.last ? L('был(а) {t}', { t: agoText(d.last) }) : '');
+    var meta = [d.md && d.md !== d.nm ? d.md : '', [d.ci, d.co].filter(Boolean).join(', '), d.ip ? 'IP ' + d.ip : '', when].filter(Boolean).join(' · ');
+    var h = '<div class="dcard ' + esc(d.st || 'wait') + (devFocus === d.did ? ' focus' : '') + '" id="dev-' + id + '">'
+      + '<div class="dtop"><b>' + esc(devLabel(d)) + '</b>' + pill + '</div>'
+      + '<div class="note" style="margin-top:3px;">' + esc(meta) + (d.push ? ' · 🔔' : '') + '</div>';
+    if (d.st === 'ok' && Array.isArray(d.pm)) h += '<div class="note" style="margin-top:2px;">' + esc(d.pm.map(function (x) { return L(PERM_T[x] || x); }).join(', ')) + '</div>';
+    if (wait) h += '<div class="dkey">' + esc(L('Код')) + ':<b>' + esc(devCode(d.did)) + '</b>' + esc(L('— сверь с экраном его телефона')) + '</div>';
+    if (mine) return h + '</div>';
+    if (p) return h + '<div class="dpend">⏳ ' + esc(devPendText(p)) + '</div></div>';
+    if (d.st === 'ok') {
+      h += '<div class="drow"><button class="chip" onclick="devRoleToggle(\'' + id + '\')">' + esc(L('Сменить роль')) + ' ' + (devRoleOpen[d.did] ? '▴' : '▾') + '</button>'
+        + '<button class="chip dno" onclick="devBlock(\'' + id + '\')">' + esc(L('⛔ Закрыть доступ')) + '</button></div>';
+      if (devRoleOpen[d.did]) h += devRoles(d, 'role');
+    } else {
+      h += '<div class="dlbl">' + esc(L(wait ? 'Разрешить как:' : 'Вернуть доступ как:')) + '</div>' + devRoles(d, 'ok');
+      if (wait) h += '<button class="danger" onclick="devBlock(\'' + id + '\')">' + esc(L('⛔ Отклонить')) + '</button>';
+    }
+    return h + '</div>';
+  }
+  function devRoles(d, mode) {
+    return '<div class="droles">' + ROLES.map(function (r) {
+      var cur = mode === 'role' && d.role === r.k;
+      return '<button class="drole' + (cur ? ' on' : '') + '" onclick="devAct(\'' + esc(d.did) + '\', \'' + mode + '\', \'' + r.k + '\')"><span class="rt">' + r.ic + ' ' + esc(L(r.t)) + (cur ? ' ✓' : '') + '</span><span class="rd">' + esc(L(r.d)) + '</span></button>';
+    }).join('') + '</div>';
+  }
+  window.devRoleToggle = function (did) { devRoleOpen[did] = !devRoleOpen[did]; devPaint(); };
+  // разрешить (mode 'ok') или сменить роль (mode 'role'); владельцу — с отдельным предупреждением
+  window.devAct = function (did, mode, role) {
+    var d = devById(did);
+    if (!d || !can('admin') || !ROLES.some(function (r) { return r.k === role; })) return;
+    if (mode === 'role' && d.role === role) { devRoleOpen[did] = false; devPaint(); return; }
+    var q = mode === 'ok' ? L('Разрешить доступ «{n}» (код {c}) как «{r}»?', { n: devLabel(d), c: devCode(did), r: roleName(role) })
+      : L('Сменить роль «{n}» на «{r}»?', { n: devLabel(d), r: roleName(role) });
+    if (role === 'owner') q += '\n\n' + L('Владелец видит всё и сам разрешает устройства и меняет роли.');
+    if (!confirm(q)) return;
+    opPush({ op: 'devSet', did: did, patch: mode === 'ok' ? { st: 'ok', role: role } : { role: role } });
+    devRoleOpen[did] = false;
+    devAfter();
+  };
+  // отклонить запрос / закрыть доступ
+  window.devBlock = function (did) {
+    var d = devById(did);
+    if (!d || !can('admin')) return;
+    if (!confirm(d.st === 'wait' ? L('Отклонить запрос «{n}»? Устройство не получит доступ (передумаешь — «Вернуть доступ» здесь же).', { n: devLabel(d) })
+      : L('Закрыть доступ «{n}»? Данные на нём удалятся, команды с него выполняться не будут.', { n: devLabel(d) }))) return;
+    opPush({ op: 'devSet', did: did, patch: { st: 'off' } });
+    devAfter();
+  };
+  function devAfter() {
+    devPaint(); bellPaint();
+    if (tab === 'home' && !typingNow()) heroPaint('home');
+    toast(L('✓ Отправлено — компьютер применит в течение минуты'));
+  }
+  window.closeSheets = function () { ['sheetBg', 'editSheet', 'cfgSheet', 'feedSheet', 'moreSheet', 'bellSheet', 'devSheet'].forEach(function (i) { var el = document.getElementById(i); if (el) { el.style.display = 'none'; el.style.translate = ''; } }); fdSel = null; };
   /* v1.63.1: у каждого всплывающего окна — шапка с «ручкой» и кнопкой ✕ (она не уезжает при
      прокрутке окна); окно можно смахнуть вниз за шапку. Раньше закрыть можно было только
      тапом мимо окна, а на iPhone над длинным окном почти не оставалось места. */
@@ -3300,7 +3491,10 @@
   if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', function (ev) {
     var d = ev.data || {};
     if (d.vp === 'push') setTimeout(function () { window.refresh(true); }, 1500);
-    if (d.vp === 'open' && d.tab) { if (d.tab === 'orders' && d.id) fdOrder(parseInt(d.id, 10) || 0); else setTab(d.tab); }
+    if (d.vp === 'open' && d.tab) {
+      if (d.tab === 'devs') { openDevs(String(d.id || '')); window.refresh(true); }   // v1.64: «просит доступ»
+      else if (d.tab === 'orders' && d.id) fdOrder(parseInt(d.id, 10) || 0); else setTab(d.tab);
+    }
   });
   boot();
 })();
