@@ -318,6 +318,23 @@
   .dvis { margin-top: 8px; font-size: 12.5px; color: #5a6684; }
   .dvis summary { font-weight: 800; padding: 8px 2px; color: var(--ink); }
   .dvis .vr { padding: 6px 2px; border-bottom: 1px solid #f0f2f7; line-height: 1.4; }
+  /* ── v1.65 ── */
+  /* поле поиска с ✕ справа (появляется, когда в поле что-то есть) */
+  .sfield { position: relative; margin-bottom: 10px; }
+  .sfield .search { margin-bottom: 0 !important; padding-right: 46px; }
+  .sfield input[type=search]::-webkit-search-cancel-button { -webkit-appearance: none; display: none; }
+  .sclr { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; border-radius: 50%; border: none; background: #e3e8f2; color: #5a6684; font-size: 13px; font-weight: 800; padding: 0; display: none; align-items: center; justify-content: center; font-family: inherit; }
+  .sfield.has .sclr { display: flex; }
+  /* конец списка: без «пружины» — из-за неё нижнее меню дёргалось и уезжало вниз */
+  html, body { overscroll-behavior-y: none; }
+  /* главная: белый лист до самого меню (была серая полоса под «Показать все») */
+  body.home { background: #fff; }
+  .more { margin: 6px 0 14px; }
+  .more button { width: 100%; border: none; background: #eef2fb; color: #233a74; border-radius: 14px; padding: 13px 16px; font-size: 14px; font-weight: 800; }
+  /* наличие по заказу */
+  .ostnote { font-size: 11.5px; color: #8a93ad; margin: 6px 2px 2px; }
+  .fanack { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 2px; }
+  .fanack .chip { margin: 0; }
 </style>
 </head>
 <body>
@@ -409,7 +426,7 @@
 <script>
 (function () {
   'use strict';
-  var PAGE_VER = '1.64.1';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
+  var PAGE_VER = '1.65.0';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
   var API = 'https://api.github.com';
   /* ── v1.62: язык приложения (RU / RO). L('русский текст', {n: 5}) — перевод по
      словарю RO (ключ — сам русский текст), {n} — подстановки. Нет в словаре — по-русски. ── */
@@ -934,7 +951,33 @@
     '📱 Просит доступ: «{n}»': '📱 Cere acces: «{n}»',
     '📱 Просят доступ: {n}': '📱 Cer acces: {n}',
     'Сверь код и выбери роль — или отклони': 'Compară codul și alege rolul — sau respinge',
-    'просит доступ · код {c}': 'cere acces · cod {c}'
+    'просит доступ · код {c}': 'cere acces · cod {c}',
+    // v1.65: наличие по заказам, «разобрался» по посылкам
+    'сайт не ответил при проверке — компьютер повторит': 'site-ul n-a răspuns la verificare — calculatorul repetă',
+    'есть': 'este',
+    'на складе {q} из {n} — не хватает {m}': 'în stoc {q} din {n} — lipsesc {m}',
+    'нет в наличии — не хватает {m}': 'lipsește din stoc — lipsesc {m}',
+    'не удалось проверить': 'nu s-a putut verifica',
+    'Проверяю наличие…': 'Verific stocul…',
+    'Наличие: {e}': 'Stoc: {e}',
+    'Не хватает: {n} из {t}': 'Lipsesc: {n} din {t}',
+    'Наличие: не определилось у {n} из {t}': 'Stoc: neclar pentru {n} din {t}',
+    'Всё в наличии': 'Totul în stoc',
+    'Компьютер проверяет наличие на складе…': 'Calculatorul verifică stocul…',
+    'Наличие проверено {t} · обновляется раз в сутки, после ночной выгрузки из 1С': 'Stoc verificat {t} · se actualizează o dată pe zi, după descărcarea de noapte din 1C',
+    'нет входа в админку': 'nu e logat în admin',
+    'сайт не отвечал': 'site-ul nu a răspuns',
+    'состав заказа не прочитался': 'conținutul comenzii nu s-a citit',
+    'код не найден на сайте': 'codul nu e pe site',
+    'нет кода в заказе': 'în comandă lipsește codul',
+    'сайт не ответил': 'site-ul n-a răspuns',
+    'Отметить по заказу #{id}: сумма наложенного верна? Больше напоминать не буду.': 'Marchezi la comanda #{id}: suma rambursului e corectă? Nu mai amintesc.',
+    'Отметить по заказу #{id}: «разобрался» с посылкой? Тревога снимется до следующей смены статуса FAN.': 'Marchezi la comanda #{id}: coletul e rezolvat? Alarma dispare până la următoarea schimbare de statut FAN.',
+    '✓ Отмечено — компьютер применит в течение минуты': '✓ Marcat — calculatorul aplică într-un minut',
+    'разобрано': 'rezolvat',
+    'Разобрался': 'Rezolvat',
+    'Сумма верна': 'Suma e corectă',
+    'Отметка отправлена — компьютер применит в течение минуты': 'Marcajul e trimis — calculatorul aplică într-un minut'
   };
   function L(s, v) {
     var t = (LANG === 'ro' && RO[s]) ? RO[s] : s;
@@ -1068,6 +1111,21 @@
     clearTimeout(toast._tm); toast._tm = setTimeout(function () { el.style.opacity = '0'; }, 2800);
   }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  // v1.65: поле поиска с ✕ справа — очистить одним нажатием (список обновится, клавиатура останется)
+  function sField(inputHtml, val, style) {
+    return '<div class="sfield' + (val ? ' has' : '') + '"' + (style ? ' style="' + style + '"' : '') + '>' + inputHtml
+      + '<button type="button" class="sclr" aria-label="clear" onmousedown="event.preventDefault()" onclick="sClear(this)">✕</button></div>';
+  }
+  function sSync(el) { var w = el && el.parentNode; if (w && w.classList && w.classList.contains('sfield')) w.classList.toggle('has', !!el.value); }
+  window.sClear = function (btn) {
+    var w = btn && btn.parentNode, inp = w && w.querySelector('input');
+    if (!inp) return;
+    inp.value = '';
+    w.classList.remove('has');
+    try { inp.dispatchEvent(new Event('input', { bubbles: true })); } catch (e) {}   // тот же обработчик, что при наборе
+    try { inp.focus(); } catch (e) {}
+  };
+  document.addEventListener('input', function (e) { sSync(e.target); }, true);
   function telHref(p) { return 'tel:' + String(p || '').replace(/[^+\d]/g, ''); }
   function num(v) { var n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isFinite(n) ? n : 0; }
   function agoText(ms) {
@@ -1561,7 +1619,7 @@
   function kbField(a) {
     return !!(a && a.tagName && (/^(TEXTAREA|SELECT)$/.test(a.tagName) || (a.tagName === 'INPUT' && !/^(checkbox|radio|button|submit|reset|range|color|file|image|hidden)$/i.test(a.type || 'text'))));
   }
-  var KB = { open: false, fix: 0 };
+  var KB = { open: false, fix: 0, closedAt: 0 };
   (function () {
     var root = document.documentElement, vv = window.visualViewport, raf = 0, tms = [];
     var sa = function () { return !!window.__kbForceSA || isStandalone(); };
@@ -1583,10 +1641,18 @@
       var r = nav.getBoundingClientRect();
       return r.height ? window.innerHeight - r.bottom : null;
     }
+    // страница «за краем» (пружина в конце / начале списка) — размеры в этот миг не настоящие
+    function overscrolled() {
+      var y = window.pageYOffset || 0, max = Math.max(0, (document.documentElement.scrollHeight || 0) - window.innerHeight);
+      return y < -1 || y > max + 1;
+    }
     function measure() {
-      if (!sa() || KB.open || (vv && Math.abs((vv.scale || 1) - 1) > 0.01)) return;
+      if (!sa() || KB.open || (vv && Math.abs((vv.scale || 1) - 1) > 0.01) || overscrolled()) return;
       var d = gap();
       if (d == null || Math.abs(d) < 2) return;
+      // v1.65: поправку СТАВИМ только в первые секунды после закрытия клавиатуры (та самая ошибка iOS 26);
+      // в остальное время — только снимаем. Раньше её ставила «пружина» в конце списка: меню дёргалось и уезжало вниз.
+      if (d > 0 && Date.now() - KB.closedAt > 4000) return;
       setFix(KB.fix + d);
     }
     function vvOff() { return !!(vv && (Math.abs(vv.offsetTop) > 0.5 || vv.height < window.innerHeight - 1)); }
@@ -1610,7 +1676,7 @@
       if (open !== KB.open) {
         KB.open = open;
         root.classList.toggle('kb', open);
-        if (!open) settle();
+        if (!open) { KB.closedAt = Date.now(); settle(); }
       }
       measure();
     }
@@ -1674,7 +1740,7 @@
     hb.innerHTML = t ? '<div class="htitle"><span class="hti">' + ico(t.k) + '</span><span id="tname">' + esc(L(t.t)) + '</span></div>' : '';
   }
   function grpActive() { return Object.keys((state && state.grp) || {}).filter(function (id) { return ordGrp(id); }); }
-  function fanAlarmN() { var d = (state && state.deliv) || {}; return ordAll().filter(function (o) { return ordFanAlarm(d[o.id]); }).length; }
+  function fanAlarmN() { var d = (state && state.deliv) || {}; return ordAll().filter(function (o) { return ordFanAlarm(d[o.id], o.id); }).length; }
   function homeHeroHtml() {
     var now = Date.now(), h = '', ch = [];
     var nn = can('orders') ? ordNewCount() : 0, fn = can('feed') ? feedNewCount() : 0;
@@ -1791,7 +1857,7 @@
     var f = (state && state.find) || null;
     var pendingOp = opsQueue().filter(function (o) { return o.op === 'findProduct'; }).pop();
     var h = '<div class="sec">' + esc(L('Поиск товара по коду')) + '</div>';
-    h += '<div style="display:flex;gap:8px;"><input class="search" style="margin:0;flex:1;min-width:0;" id="vfQ" placeholder="' + esc(L('Код, напр. 21.1907')) + '" value="' + esc(findQ) + '" onkeydown="if(event.key===\'Enter\')vfSend()"><button class="chip on" style="margin:0;" onclick="vfSend()">' + esc(L('Найти')) + '</button></div>';
+    h += '<div style="display:flex;gap:8px;align-items:center;">' + sField('<input class="search" style="margin:0;" id="vfQ" placeholder="' + esc(L('Код, напр. 21.1907')) + '" value="' + esc(findQ) + '" onkeydown="if(event.key===\'Enter\')vfSend()">', findQ, 'margin:0;flex:1;min-width:0;') + '<button class="chip on" style="margin:0;" onclick="vfSend()">' + esc(L('Найти')) + '</button></div>';
     h += '<div class="note">' + esc(L('Ищет компьютер (должен быть включён): результат придёт в течение минуты — обнови 🔄.')) + '</div>';
     if (pendingOp) h += '<div class="card" style="margin-top:10px;"><b>' + esc(L('⏳ Компьютер ищет «{q}»…', { q: pendingOp.q || '' })) + '</b><div class="meta">' + esc(L('обнови страницу через минуту')) + '</div></div>';
     if (f && f.at && !pendingOp) {
@@ -1957,7 +2023,43 @@
     if (gi.ok) return '<span class="mk mk-ok">✓ ' + esc(L('хватает')) + (gi.qty != null ? ' (' + esc(L('на складе {q}', { q: gi.qty })) + ')' : '') + '</span>';
     if (gi.st === 'in' && gi.need > 0) return '<span class="mk mk-no">✗ ' + esc(L('не хватает: нужно {n}, на складе {q}', { n: gi.need, q: gi.qty != null ? gi.qty : '?' })) + '</span>';
     if (gi.st === 'out') return '<span class="mk mk-no">✗ ' + esc(L('нет в наличии')) + (gi.need > 1 ? ' · ' + esc(L('нужно {n}', { n: gi.need })) : '') + '</span>';
+    // v1.65: проверка была, но сайт не ответил — компьютер повторит (а не «не проверялось» навсегда)
+    if (gi.st === 'unknown') return '<span class="mk mk-wait">❓ ' + esc(L('сайт не ответил при проверке — компьютер повторит')) + '</span>';
     return '<span class="mk mk-wait">⏳ ' + esc(L('ещё не проверялось')) + '</span>';
+  }
+  /* v1.65: наличие по каждому заказу — проверяет компьютер сам: новый заказ сразу, открытые — раз в
+     сутки, после ночной выгрузки из 1С. state.ost = {id: {at, it: [[код, s, q, n, почему, имя]], e, p}} */
+  function fmtQ(n) { n = +n; return isFinite(n) ? String(Math.round(n * 100) / 100) : '?'; }
+  function ordStock(id) { var m = (state && state.ost) || {}; return m[id] || m[String(id)] || null; }
+  function ordOpenRole(role) { return role === 'new' || role === 'approved' || role === 'callback'; }
+  function ostItem(os, code) {
+    if (!os || !os.it) return null;
+    var k = String(code || '').trim().toLowerCase();
+    for (var i = 0; i < os.it.length; i++) if (String(os.it[i][0] || '').trim().toLowerCase() === k) return os.it[i];
+    return null;
+  }
+  function ostMark(r) {
+    if (!r) return '';
+    var s = r[1], q = r[2], n = +r[3] || 1;
+    if (s === 'in') return '<span class="mk mk-ok">✓ ' + esc(L('есть')) + (q != null ? ' · ' + esc(L('на складе {q}', { q: fmtQ(q) })) : '') + '</span>';
+    if (s === 'part') return '<span class="mk mk-no">◧ ' + esc(L('на складе {q} из {n} — не хватает {m}', { q: fmtQ(q), n: fmtQ(n), m: fmtQ(n - q) })) + '</span>';
+    if (s === 'out') return '<span class="mk mk-no">✗ ' + esc(L('нет в наличии — не хватает {m}', { m: fmtQ(n) })) + '</span>';
+    return '<span class="mk mk-wait">❓ ' + esc(L(r[4] || 'не удалось проверить')) + '</span>';
+  }
+  function ostBadge(os) {
+    if (!os) return '';
+    var it = os.it || [];
+    if (os.p && !it.length) return '<span class="badge bg-done">⏳ ' + esc(L('Проверяю наличие…')) + '</span>';
+    if (!it.length) return os.e ? '<span class="badge bg-unk">📦 ' + esc(L('Наличие: {e}', { e: L(os.e) })) + '</span>' : '';
+    var miss = it.filter(function (r) { return r[1] === 'out' || r[1] === 'part'; }).length, unk = it.filter(function (r) { return r[1] !== 'in' && r[1] !== 'out' && r[1] !== 'part'; }).length;
+    if (miss) return '<span class="badge bg-out">📦 ' + esc(L('Не хватает: {n} из {t}', { n: miss, t: it.length })) + '</span>';
+    if (unk) return '<span class="badge bg-unk">📦 ' + esc(L('Наличие: не определилось у {n} из {t}', { n: unk, t: it.length })) + '</span>';
+    return '<span class="badge bg-in">📦 ' + esc(L('Всё в наличии')) + '</span>';
+  }
+  function ostNote(os) {
+    if (!os) return '';
+    if (os.p && !(os.it || []).length) return '<div class="ostnote">⏳ ' + esc(L('Компьютер проверяет наличие на складе…')) + '</div>';
+    return os.at ? '<div class="ostnote">' + esc(L('Наличие проверено {t} · обновляется раз в сутки, после ночной выгрузки из 1С', { t: fdWhen(os.at) })) + '</div>' : '';
   }
   function grpItemsHtml(g) {
     return '<div class="grpbox"><div class="gh">🧩 ' + esc(L('Не хватало при заказе — {n} поз.', { n: g.total })) + '</div>' + g.items.map(function (gi) {
@@ -2010,17 +2112,44 @@
     return st || ((oc && oc.miss > 0) ? 'noanswer' : '');
   }
   // Посылка, на которую надо посмотреть: красный/жёлтый флаг FAN, проблема или расхождение наложенного.
-  function ordFanAlarm(dl) { return !!(dl && dl.awb && (dl.sev === 'red' || dl.sev === 'warn' || dl.prob || dl.cod || (dl.miss && !dl.st))); }
+  // v1.65: тревога — ровно как на компьютере (al): «✓ Разобрался» / «✓ Верно» (там или здесь) её снимает.
+  // Раньше цвет брался из статуса FAN — «Returnat» оставался красным навсегда, даже разобранный.
+  function fanAckPend(id) {
+    var r = {};
+    opsQueue().forEach(function (o) { if (o.op === 'fanAck' && String(o.id) === String(id)) r[o.what === 'cod' ? 'cod' : 'prob'] = 1; });
+    return r;
+  }
+  function ordFanAlarm(dl, id) {
+    if (!dl || !dl.awb) return false;
+    if (dl.al == null) return !!(dl.sev === 'red' || dl.sev === 'warn' || dl.prob || dl.cod || (dl.miss && !dl.st));   // данные от прежней версии
+    if (!dl.al) return false;
+    var pa = id != null ? fanAckPend(id) : {};
+    return !!((dl.prob && !pa.prob) || (dl.cod && !pa.cod) || (dl.miss && !dl.st));
+  }
+  window.ordFanAck = function (id, what) {
+    var dl = ((state && state.deliv) || {})[id];
+    if (!dl || !can('ordersEdit')) return;
+    var cod = what === 'cod';
+    if (!confirm(cod ? L('Отметить по заказу #{id}: сумма наложенного верна? Больше напоминать не буду.', { id: id })
+      : L('Отметить по заказу #{id}: «разобрался» с посылкой? Тревога снимется до следующей смены статуса FAN.', { id: id }))) return;
+    opPush({ op: 'fanAck', id: id, what: cod ? 'cod' : 'prob', sig: cod ? (dl.cs || '') : (dl.ps || '') });
+    toast(L('✓ Отмечено — компьютер применит в течение минуты'));
+    render();
+  };
   // v1.53: точный статус в кабинете FAN — слово FAN, наш перевод, уточнение («Refuz primire»), с какого времени.
-  function ordFanBadge(dl) {
+  function ordFanBadge(dl, id) {
     if (!dl || !dl.awb) return '';
     // v1.53.1: код есть, статуса нет — ждём проверку или кода нет в списке кабинета (там поиск / фильтр)
     if (!(dl.st || dl.lbl)) return dl.miss ? '<span class="badge bg-unk">' + esc(L('⚠ FAN: кода нет в списке кабинета — сбрось поиск/фильтр в «AWB-uri»')) + '</span>' : '<span class="badge bg-done">' + esc(L('⏳ FAN: жду первую проверку')) + '</span>';
     var label = String(dl.lbl || FAN_CODE[dl.st] || dl.st), ours = L.ro ? '' : (FAN_RU[dl.st] || '');
-    var cls = dl.sev === 'red' ? 'bg-out' : (dl.sev === 'warn' ? 'bg-unk' : (dl.sev === 'ok' ? 'bg-in' : 'bg-o-del'));
-    var ico = dl.sev === 'red' ? '🚩' : (dl.sev === 'warn' ? '⚠' : (dl.sev === 'ok' ? '✅' : '📦'));
+    // v1.65: не тревога (разобрали «✓» или для компьютера это не проблема) — без красного
+    var quiet = dl.al != null && !ordFanAlarm(dl, id) && (dl.sev === 'red' || dl.sev === 'warn');
+    var acked = quiet && (dl.ack || (id != null && fanAckPend(id).prob));
+    var sev = quiet ? 'done' : dl.sev;
+    var cls = sev === 'red' ? 'bg-out' : (sev === 'warn' ? 'bg-unk' : (sev === 'ok' ? 'bg-in' : (sev === 'done' ? 'bg-done' : 'bg-o-del')));
+    var ico = sev === 'red' ? '🚩' : (sev === 'warn' ? '⚠' : (sev === 'ok' ? '✅' : '📦'));
     return '<span class="badge ' + cls + '">' + ico + ' FAN: ' + esc(label) + (ours && ours.toLowerCase() !== label.toLowerCase() ? ' — ' + esc(ours) : '')
-      + (dl.rsn ? ' · ' + esc(dl.rsn) : '') + (dl.at ? ' · ' + esc(L('с {t}', { t: fdWhen(dl.at) })) : '') + '</span>';
+      + (dl.rsn ? ' · ' + esc(dl.rsn) : '') + (dl.at ? ' · ' + esc(L('с {t}', { t: fdWhen(dl.at) })) : '') + (acked ? ' · ✓ ' + esc(L('разобрано')) : '') + '</span>';
   }
   // v1.63.1: одна карточка заказа — в списке и на экране одного заказа (из «Задач», «Сегодня», уведомлений)
   function ordCardHtml(o, pend, dAll, details) {
@@ -2038,15 +2167,19 @@
       : (o.status || '');
     var cbBadge = (oc.at ? '<span class="badge ' + (oc.at <= now0 ? 'bg-out' : 'bg-o-later') + '">⏰ ' + esc(fdWhen(oc.at, now0)) + '</span>' : '')
       + (oc.miss >= 2 && role !== 'callback' ? '<span class="badge bg-o-noans">📵 ×' + oc.miss + '</span>' : '');
-    var dl = dAll[o.id];
+    var dl = dAll[o.id], pa = fanAckPend(o.id);
     if (dl && dl.awb) meta.push('📦 ' + esc(dl.awb) + (dl.auto ? ' 🔗' : ''));
-    cbBadge += ordFanBadge(dl);
+    cbBadge += ordFanBadge(dl, o.id);
     // v1.50: проблема с посылкой / расхождение наложенного (считает компьютер), причина отмены.
-    if (dl && dl.prob) cbBadge += '<span class="badge bg-out">🚚 ' + esc(dl.prob) + '</span>';
-    if (dl && dl.cod) cbBadge += '<span class="badge bg-out">💰 ' + esc(dl.cod) + '</span>';
+    // v1.65: отмеченные здесь «✓ разобрался / ✓ верно» не показываем, пока компьютер не применит
+    if (dl && dl.prob && !pa.prob) cbBadge += '<span class="badge bg-out">🚚 ' + esc(dl.prob) + '</span>';
+    if (dl && dl.cod && !pa.cod) cbBadge += '<span class="badge bg-out">💰 ' + esc(dl.cod) + '</span>';
     // v1.62: «дособрать» — сколько позиций уже есть
     var g = ordGrp(o.id);
     if (g) cbBadge += '<span class="badge ' + (g.ready === g.total ? 'bg-in' : 'bg-grp') + '">🧩 ' + esc(g.ready === g.total ? L('Укомплектован — можно звонить') : L('Дособрать: не хватает {n} из {t}', { n: g.total - g.ready, t: g.total })) + '</span>';
+    // v1.65: наличие по заказу (проверяет компьютер) — у открытых заказов
+    var os = ordStock(o.id);
+    if (os && ordOpenRole(role)) cbBadge += ostBadge(os);
     var crTxt = ((state && state.cr) || {})[o.id];
     if (crTxt) meta.push('✖ ' + esc(crTxt));
     var stCls = role === 'callback' ? (cbSt === 'later' ? 'bg-o-later' : 'bg-o-noans') : (ROLE_CLS[role] || 'bg-done');
@@ -2062,22 +2195,36 @@
         if (g) detHtml += '<div class="meta" style="color:#a61e4d;font-weight:800;">🧩 ' + esc(L('Состав заказа: что есть и чего не хватает')) + '</div>';
         detHtml += d.items.map(function (it) {
           var sum = num(it.price) * num(it.qty); total += sum;
-          var gi = g ? gmap[String(it.code)] : null;
-          var mk = g ? (gi ? grpMark(gi) : '<span class="mk mk-ok">✓ ' + esc(L('было в наличии')) + '</span>') : '';
+          var gi = g ? gmap[String(it.code)] : null, oi = ostItem(os, it.code);
+          // v1.65: точный ответ — отслеживание «дособрать» (если оно ответило), иначе проверка наличия по заказу
+          var mk = (gi && (gi.st === 'in' || gi.st === 'out')) ? grpMark(gi) : oi ? ostMark(oi) : gi ? grpMark(gi)
+            : g ? '<span class="mk mk-ok">✓ ' + esc(L('было в наличии')) + '</span>' : '';
           return '<div class="oit"><span class="n">' + esc(it.name) + '<br><span style="color:#999;font-size:11px;">' + esc(it.code) + '</span>' + mk + '</span><span class="q">' + esc(it.qty) + ' × ' + esc(it.price) + '<br><b>' + (sum ? sum.toFixed(2) : '—') + '</b></span></div>';
         }).join('');
         if (total) detHtml += '<div style="text-align:right;font-weight:800;font-size:14px;padding:8px 0 2px;">' + esc(L('Итого: {s} лей', { s: total.toFixed(2) })) + '</div>';
+        detHtml += ostNote(os);
       } else {
         if (g) detHtml += grpItemsHtml(g);
+        // v1.65: состав (с ценами) ещё не пришёл, а наличие уже проверено — показываем по наличию
+        else if (os && os.it && os.it.length) detHtml += os.it.map(function (r) {
+          return '<div class="oit"><span class="n">' + esc(r[5] || r[0]) + '<br><span style="color:#999;font-size:11px;">' + esc(r[0]) + ' · ' + esc(L('нужно {n}', { n: fmtQ(r[3]) })) + '</span>' + ostMark(r) + '</span></div>';
+        }).join('') + ostNote(os);
         var asked = ordDetAsked[o.id] || opsQueue().some(function (x) { return x.op === 'orderDetail' && x.id === o.id; });
         if (!asked && typeof opPush === 'function' && can('orders')) { ordDetAsked[o.id] = 1; setTimeout(function () { opPush({ op: 'orderDetail', id: o.id }); }, 0); }
         detHtml += '<div class="meta" style="padding:8px 0;">' + esc(L('Состав ещё не загружен с компьютера — появится после ближайшей синхронизации.')) + '</div>';
       }
-      if (dl && dl.awb && (dl.sev === 'red' || dl.sev === 'warn')) {
+      var fanAl = ordFanAlarm(dl, o.id);
+      if (dl && dl.awb && fanAl && (dl.sev === 'red' || dl.sev === 'warn')) {
         detHtml += '<div class="meta" style="padding:8px 10px;margin:8px 0;border-radius:10px;background:' + (dl.sev === 'red' ? '#fdecec;color:#a11' : '#fff4e0;color:#8a5200') + ';">'
           + esc(dl.sev === 'red' ? L('🚩 Красный флаг FAN — позвони клиенту, пока посылку не вернули.') : L('⚠ FAN сообщает о сложности с доставкой — проверь.'))
           + (o.phone ? ' <a href="' + telHref(o.phone) + '">📞 ' + esc(o.phone) + '</a>' : '') + '</div>';
       }
+      // v1.65: «✓ Разобрался» / «✓ Сумма верна» — как в панели на компьютере (отметка общая для всех)
+      if (dl && can('ordersEdit') && ((dl.prob && !pa.prob) || (dl.cod && !pa.cod))) {
+        detHtml += '<div class="fanack">' + (dl.prob && !pa.prob ? '<button class="chip on" onclick="ordFanAck(' + o.id + ',\'prob\')">✓ ' + esc(L('Разобрался')) + '</button>' : '')
+          + (dl.cod && !pa.cod ? '<button class="chip on" onclick="ordFanAck(' + o.id + ',\'cod\')">✓ ' + esc(L('Сумма верна')) + '</button>' : '') + '</div>';
+      }
+      if (pa.prob || pa.cod) detHtml += '<div class="ostnote">⏳ ' + esc(L('Отметка отправлена — компьютер применит в течение минуты')) + '</div>';
       if (can('ordersEdit')) {
       // Выбранный — по РОДНОМУ имени из админки (оно приходит в o.status), иначе по роли.
       var stl = ordStList(), cur0 = String(o.status || '').toLowerCase().trim(), role0 = phRole(o.status);
@@ -2127,7 +2274,7 @@
         var hit = String(o.id).indexOf(q) === 0 || String(o.name || '').toLowerCase().indexOf(q) >= 0 || (qd.length >= 3 && String(o.phone || '').replace(/\D/g, '').indexOf(qd) >= 0);
         if (!hit) return false;
       }
-      if (ordFilter === 'fan') return ordFanAlarm(dAll[o.id]);
+      if (ordFilter === 'fan') return ordFanAlarm(dAll[o.id], o.id);
       if (ordFilter === 'grp') return !!ordGrp(o.id);
       if (ordFilter === 'new') return phRole(o.status) === 'new';
       if (ordFilter === 'cb') return phRole(o.status) === 'callback';
@@ -2163,7 +2310,7 @@
     var all = ordAll(), list = (state && state.orders) || [];
     var pend = ordPendStatus();
     var dAll = (state && state.deliv) || {};
-    var fanN = all.filter(function (o) { return ordFanAlarm(dAll[o.id]); }).length;
+    var fanN = all.filter(function (o) { return ordFanAlarm(dAll[o.id], o.id); }).length;
     var grpIds = Object.keys((state && state.grp) || {}).filter(function (id) { return ordGrp(id); });
     var newN = all.filter(function (o) { return (pend[o.id] ? ordRoleOfValue(pend[o.id]) : phRole(o.status)) === 'new'; }).length;   // сколько в списке «Оформленные»
     var chip = function (f, t) { return '<button class="chip' + (ordFilter === f ? ' on' : '') + '" onclick="ordFilterSet(\'' + f + '\')">' + t + '</button>'; };
@@ -2171,7 +2318,7 @@
       + ((grpIds.length || ordFilter === 'grp') ? chip('grp', '🧩 ' + esc(L('Дособрать')) + ' (' + grpIds.length + ')') : '')
       + ((fanN || ordFilter === 'fan') ? chip('fan', '🚩 ' + esc(L('Посылки FAN')) + ' (' + fanN + ')') : '') + '</div>';
     var q = String(ordQ || '').trim();
-    var srch = (all.length > list.length || q || ordSearchOpen) ? '<input class="search" id="ordQ" type="search" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="' + esc(L('🔍 Номер, имя или телефон — по всем заказам')) + '" value="' + esc(ordQ) + '" oninput="ordSearch(this.value)">' : '';
+    var srch = (all.length > list.length || q || ordSearchOpen) ? sField('<input class="search" id="ordQ" type="search" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="' + esc(L('🔍 Номер, имя или телефон — по всем заказам')) + '" value="' + esc(ordQ) + '" oninput="ordSearch(this.value)">', ordQ) : '';
     box.innerHTML = chips + srch + '<div id="ordList">' + ordListHtml() + '</div>';
   }
   window.ordFocusOff = function () { ordFocus = 0; render(); try { window.scrollTo(0, 0); } catch (e) {} };  window.ordFilterSet = function (f) { ordFilter = f; ordShow = 30; ordFocus = 0; render(); };
@@ -2368,6 +2515,7 @@
     var now = Date.now(), pend = fdPend();
     var items = ((state && state.today) || []).map(function (it) { return JSON.parse(JSON.stringify(it)); }).filter(function (it) {
       if (it.kind === 'feed' && pend[it.id] && !fdIsOpen(pend[it.id].key)) return false;   // уже закрыли с телефона
+      if ((it.kind === 'parcel' || it.kind === 'cod') && fanAckPend(it.id)[it.kind === 'cod' ? 'cod' : 'prob']) return false;   // v1.65: отметили здесь «разобрался / верно»
       return true;
     });
     items.forEach(function (it) {
@@ -2601,7 +2749,7 @@
       }).join('') : '<div class="empty">' + esc(L('Ничего не найдено')) + '</div>');
   }
   function renderWeights(box) {
-    box.innerHTML = '<input class="search" id="wq" type="search" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="' + esc(L('🔍 Код или название…')) + '" value="' + esc(wtsQuery) + '" oninput="wtsSearch(this.value)">'
+    box.innerHTML = sField('<input class="search" id="wq" type="search" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="' + esc(L('🔍 Код или название…')) + '" value="' + esc(wtsQuery) + '" oninput="wtsSearch(this.value)">', wtsQuery)
       + '<div id="wList">' + wtsListHtml() + '</div>';
   }
   window.wtsSearch = function (v) { wtsQuery = v; var l = document.getElementById('wList'); if (l && tab === 'weights') l.innerHTML = wtsListHtml(); else render(); };  window.wtsEditW = function (code) {
@@ -2671,7 +2819,7 @@
       '<input class="search" style="margin:0;flex:1;min-width:0;" id="fanKg" type="text" inputmode="decimal" autocomplete="off" placeholder="' + esc(L('Вес, кг (напр. 3.5)')) + '" onkeydown="if(event.key===\'Enter\'){event.preventDefault();fanAddKg();}">' +
       '<button class="chip on" style="margin:0;" onmousedown="event.preventDefault()" onclick="fanAddKg()">+ ' + kg + '</button></div>';
     // цифровая клавиатура: «,» в этом поле сразу становится «.» (точки на ней нет, а в кодах она нужна)
-    h += '<div class="row"><input class="search" style="margin:0;flex:1;min-width:0;" id="fanCode" type="text" inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="' + esc(L('…или код из базы весов')) + '" value="' + esc(fanCodeQ) + '" oninput="fanCodeSearch(this)"></div>';
+    h += '<div class="row">' + sField('<input class="search" style="margin:0;" id="fanCode" type="text" inputmode="decimal" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="' + esc(L('…или код из базы весов')) + '" value="' + esc(fanCodeQ) + '" oninput="fanCodeSearch(this)">', fanCodeQ, 'margin:0;flex:1;min-width:0;') + '</div>';
     h += '<div class="note fhint">' + esc(L('Точку в коде ставит «,» на цифровой клавиатуре: 81,1039 → 81.1039')) + '</div>';
     h += '<div id="fanFound">' + fanFoundHtml() + '</div>';
     h += '<div id="fanRows">' + fanRowsHtml() + '</div>';
@@ -2824,7 +2972,7 @@
     if (!w) return;
     fanWeights.push({ label: code + (w.name ? ' · ' + w.name : ''), kg: num(w.weight), dim: fanDims(w) });
     fanCodeQ = '';
-    var el = document.getElementById('fanCode'); if (el) el.value = '';
+    var el = document.getElementById('fanCode'); if (el) { el.value = ''; sSync(el); }
     fanPaint();
   };
 
