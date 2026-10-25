@@ -980,6 +980,7 @@
     'Отметка отправлена — компьютер применит в течение минуты': 'Marcajul e trimis — calculatorul aplică într-un minut',
     // v1.66: телефон сменил ключ — доступ возвращается сам
     'Восстанавливаю доступ': 'Restabilesc accesul',
+    'восстанавливаю доступ': 'restabilesc accesul',
     'Телефон сменил ключ шифрования (сбой памяти телефона). Ссылка та же — ничего удалять и переустанавливать не нужно: компьютер узнает этот телефон и сам вернёт прежний доступ, обычно за минуту-две.': 'Telefonul și-a schimbat cheia de criptare (eroare de memorie a telefonului). Linkul e același — nu trebuie șters sau reinstalat nimic: calculatorul recunoaște telefonul și îi redă singur accesul de înainte, de obicei în 1–2 minute.',
     'Страница проверяет сама каждые 20 секунд. Компьютер должен быть включён. Если не восстановится — владелец увидит запрос с этим кодом и разрешит его.': 'Pagina verifică singură la fiecare 20 de secunde. Calculatorul trebuie să fie pornit. Dacă nu se restabilește — proprietarul va vedea cererea cu acest cod și o va permite.',
     'Память телефона не ответила': 'Memoria telefonului nu a răspuns',
@@ -1771,7 +1772,7 @@
     if (ae && ae !== document.body && box && box.contains(ae) && kbField(ae)) { try { ae.blur(); } catch (e) {} }
     var ageEl = document.getElementById('age');
     var stale = state && state.updatedAt && (Date.now() - state.updatedAt) > 20 * 60000;
-    ageEl.textContent = state && state.updatedAt ? (L('данные с компьютера') + ' · ' + agoText(state.updatedAt) + (stale ? ' · ' + L('компьютер не на связи?') : '')) : (V3.st === 'wait' ? L('ждём разрешения') : '—');
+    ageEl.textContent = state && state.updatedAt ? (L('данные с компьютера') + ' · ' + agoText(state.updatedAt) + (stale ? ' · ' + L('компьютер не на связи?') : '')) : (V3.st === 'wait' ? L(V3.rekey ? 'восстанавливаю доступ' : 'ждём разрешения') : '—');
     ageEl.className = 'age' + (stale ? ' warn' : '');
     document.body.classList.toggle('gated', !!gateKind || V3.st !== 'ok');
     if (gateKind) { heroPaint('gate'); box.innerHTML = gateHtml(gateKind, gateExtra); navPaint(); document.getElementById('fab').style.display = 'none'; return; }
