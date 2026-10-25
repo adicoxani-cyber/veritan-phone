@@ -2036,12 +2036,13 @@
     if (FW.ck) clearTimeout(FW.ck);
     FW.ck = setTimeout(fwClock, 1000);
   }
-  function fwTick() {
+  // peek — одна проверка и в состоянии «не ответил за 3 минуты» (вернулись в приложение: ответ мог прийти, пока оно спало)
+  function fwTick(peek) {
     if (!FW) return;
     FW.tm = 0;
-    if (FW.st === 'done' || FW.st === 'slow' || !cfg || !V3.aes) return;
-    if (document.hidden) { fwPlan(1500); return; }   // приложение свёрнуто — запросы не тратим; вернулись — продолжим
-    if (Date.now() - FW.t0 > FW_SLOW) { FW.st = 'slow'; fwStop(); fwPaint(); return; }
+    if (FW.st === 'done' || (FW.st === 'slow' && peek !== true) || !cfg || !V3.aes) return;
+    if (document.hidden) { if (FW.st !== 'slow') fwPlan(1500); return; }   // приложение свёрнуто — запросы не тратим; вернулись — продолжим
+    if (FW.st !== 'slow' && Date.now() - FW.t0 > FW_SLOW) { FW.st = 'slow'; fwStop(); fwPaint(); return; }
     var mine = FW;
     // запрос не ушёл (не было связи) — дописать файл устройства
     var w = (mine.st === 'send' && mine.err) ? devWrite().then(function () { if (mine === FW && FW.st === 'send') { FW.st = 'sent'; FW.err = false; fwPaint(); } }, function () {}) : Promise.resolve();
@@ -3958,7 +3959,7 @@
   window.__veState = function () { return state; };
   document.addEventListener('visibilitychange', function () {
     if (document.hidden || !cfg || !V3.aes) return;
-    if (FW && FW.st !== 'done' && FW.st !== 'slow') fwPlan(50);   // v1.67: вернулись в приложение — сразу проверить ответ
+    if (FW && FW.st !== 'done') { if (FW.st === 'slow') fwTick(true); else fwPlan(50); }   // v1.67: вернулись в приложение — сразу проверить ответ
     noteVisit().then(function (fresh) { if (fresh) devWrite().catch(function () {}); });
     if (Date.now() - _lastRef > 8000) window.refresh(true);
     // Вернулись после звонка клиенту по заявке — сразу лист «что получилось».
