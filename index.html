@@ -190,6 +190,20 @@
   .fw-steps .cur { color: #1f2a44; font-weight: 800; }
   .fw-steps .bad { color: #c2410c; font-weight: 700; }
   .fw-slow { border: 1px solid #fde2c4; background: #fff8f0; }
+  /* v1.67.1: смена статуса / состав заказа — ход внутри карточки заказа */
+  .owbox { background: #f3f7ff; border: 1px solid #dfe8fb; border-radius: 12px; padding: 9px 11px; margin: 8px 0 4px; }
+  .owbox.fw-slow { border-color: #fde2c4; background: #fff8f0; }
+  .owbox .fw-steps div { font-size: 13px; padding: 2px 0; }
+  .owbox .fw-bar { margin: 8px 0 6px; }
+  .owdone { margin: 8px 0 4px; padding: 7px 11px; border-radius: 10px; background: #e8f5ee; color: #1a8a55; font-size: 13px; font-weight: 700; }
+  .owerr { margin: 8px 0 4px; padding: 7px 11px; border-radius: 10px; background: #fdecec; color: #b42318; font-size: 13px; font-weight: 700; }
+  .meta.oaddr { color: #3d4a6b; }
+  .meta.ocmt { color: #7a5b00; }
+  /* v1.67.1: «товар пришёл» — кнопки одной ширины, подписи в одну строку */
+  .row.r3 .b { flex: 1 1 auto; min-width: 0; padding: 12px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13.5px; display: flex; align-items: center; justify-content: center; text-decoration: none; }
+  .wchip { display: inline-block; font-size: 11.5px; font-weight: 800; color: #1a8a55; background: #e8f5ee; border-radius: 9999px; padding: 3px 10px; margin-bottom: 6px; }
+  .wchip.inf { color: #7048e8; background: #f1edff; }
+  .wttl { font-size: 15.5px; font-weight: 800; color: #1f2a44; line-height: 1.3; }
   /* v1.67: клиент заказа — поля по отдельности */
   .cli { background: #f5f7fc; border-radius: 12px; padding: 8px 12px; margin: 4px 0 10px; }
   .cl-r { display: flex; gap: 10px; padding: 3px 0; font-size: 13.5px; line-height: 1.35; }
@@ -446,7 +460,7 @@
 <script>
 (function () {
   'use strict';
-  var PAGE_VER = '1.67.0';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
+  var PAGE_VER = '1.67.1';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
   var API = 'https://api.github.com';
   /* ── v1.62: язык приложения (RU / RO). L('русский текст', {n: 5}) — перевод по
      словарю RO (ключ — сам русский текст), {n} — подстановки. Нет в словаре — по-русски. ── */
@@ -1039,7 +1053,36 @@
     'Регион': 'Raion',
     'Город / село': 'Oraș / sat',
     'Адрес': 'Adresa',
-    'Комментарий': 'Comentariu'
+    'Комментарий': 'Comentariu',
+    // v1.67.1: «товар пришёл», смена статуса и состав заказа — с ходом и итогом
+    'Товар пришёл — можно звонить': 'Produsul a venit — poți suna',
+    '✉️ SMS': '✉️ SMS',
+    '✅ Готово': '✅ Gata',
+    'меняю на сайте…': 'schimb pe site…',
+    '✓ Заказ #{id}: «{s}»': '✓ Comanda #{id}: «{s}»',
+    '⚠ Статус заказа #{id} не сменился: {e}': '⚠ Statusul comenzii #{id} nu s-a schimbat: {e}',
+    'не вышло': 'nu a reușit',
+    'Статус сменён: «{s}»': 'Status schimbat: «{s}»',
+    'Статус не сменился: {e}': 'Statusul nu s-a schimbat: {e}',
+    'Отправляю…': 'Trimit…',
+    'Отправлено': 'Trimis',
+    'Компьютер получил': 'Calculatorul a primit',
+    'Компьютер получит': 'Calculatorul va primi',
+    'Жду, когда компьютер возьмёт…': 'Aștept ca calculatorul să preia…',
+    'Меняет статус на сайте…': 'Schimbă statusul pe site…',
+    'Смена на сайте': 'Schimbare pe site',
+    'Меняю статус на «{s}»': 'Schimb statusul în «{s}»',
+    'Компьютер не ответил за 3 минуты. Он включён и браузер открыт? Команда сохранена — выполнится, когда компьютер её возьмёт.': 'Calculatorul nu a răspuns în 3 minute. Este pornit și browserul deschis? Comanda e salvată — se execută când calculatorul o preia.',
+    'Позиции заказа не найдены.': 'Pozițiile comenzii nu s-au găsit.',
+    'Состав не загрузился: {e}': 'Conținutul nu s-a încărcat: {e}',
+    'Ещё раз': 'Încă o dată',
+    'Компьютер не ответил — он включён и браузер открыт? Состав появится, когда компьютер его загрузит.': 'Calculatorul nu a răspuns — e pornit și browserul deschis? Conținutul apare când calculatorul îl încarcă.',
+    'Загружаю состав и клиента с компьютера…': 'Încarc conținutul și clientul de la calculator…',
+    'нет входа в админку на компьютере': 'nu e logat în admin pe calculator',
+    'сайт не принял смену статуса': 'site-ul nu a acceptat schimbarea statusului',
+    'заказ не прочитался': 'comanda nu s-a citit',
+    'нет ответа': 'niciun răspuns',
+    'пустая команда': 'comandă goală'
   };
   function L(s, v) {
     var t = (LANG === 'ro' && RO[s]) ? RO[s] : s;
@@ -2201,6 +2244,133 @@
     document.getElementById('fWatch').checked = !!watch;
   };
 
+  /* ── v1.67.1: смена статуса заказа и состав заказа — тем же быстрым путём, что поиск. Компьютер берёт
+     команду за секунды и отвечает файлом r_<did>.json («получил» → итог); здесь — ход с таймером прямо
+     в карточке заказа и итог без перезагрузки (новый статус ставится сразу). OW: oid → {k: 'st'|'det',
+     id, t0, st: 'send'|'sent'|'got'|'done'|'err'|'slow', status, label, res, err, doneAt} ── */
+  var OW = {}, _owT = 0, _owCk = 0, detLocal = {};
+  function owLive(w) { return w && (w.st === 'send' || w.st === 'sent' || w.st === 'got'); }
+  function owActive() { return Object.keys(OW).filter(function (k) { return owLive(OW[k]); }); }
+  // для заказа — сначала та, что ещё идёт (или ждёт компьютер), потом последняя завершённая
+  function owFor(k, id) {
+    var r = null, pr = function (w) { return (owLive(w) || w.st === 'slow') ? 1 : 0; }, tm = function (w) { return pr(w) ? w.t0 : (w.doneAt || w.t0); };
+    Object.keys(OW).forEach(function (oid) { var w = OW[oid]; if (w.k === k && String(w.id) === String(id) && (!r || pr(w) > pr(r) || (pr(w) === pr(r) && tm(w) > tm(r)))) r = w; });
+    return r;
+  }
+  function owPlan(ms) { if (_owT) clearTimeout(_owT); _owT = setTimeout(owTick, ms); }
+  function owClock() {
+    if (_owCk) clearTimeout(_owCk);
+    _owCk = 0;
+    if (!owActive().length) return;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-owt]'), function (el) { var w = OW[el.getAttribute('data-owt')]; if (w) el.textContent = fwAgo(Date.now() - w.t0); });
+    _owCk = setTimeout(owClock, 1000);
+  }
+  // op уже в очереди команд; записать файл устройства и ждать ответ
+  function owStart(op, k, extra) {
+    var w = OW[op.oid] = Object.assign({ oid: op.oid, k: k, id: op.id, t0: Date.now(), st: 'send', err: '' }, extra || {});
+    owPlan(FW_POLL); owClock();
+    devWrite().then(function () { if (w.st === 'send') { w.st = 'sent'; w.net = 0; owPaint(); } }, function () { if (w.st === 'send') { w.net = 1; owPaint(); } });
+    return w;
+  }
+  // приложение перезапустили, пока ждали, — ждём дальше те же команды (заново не шлём)
+  function owResume() {
+    opsQueue().forEach(function (o) {
+      if ((o.op === 'orderStatus' || o.op === 'orderDetail') && o.oid && !OW[o.oid] && Date.now() - (+o.ts || 0) < 10 * 60000) {
+        OW[o.oid] = { oid: o.oid, k: o.op === 'orderStatus' ? 'st' : 'det', id: o.id, t0: +o.ts || Date.now(), st: 'sent', status: o.status || '', label: o.status ? statusText(o.status) : '' };
+      }
+    });
+    if (owActive().length && !_owT) { owPlan(50); owClock(); }
+  }
+  // peek — одна проверка и для «не ответил за 3 минуты» (вернулись в приложение)
+  function owTick(peek) {
+    _owT = 0;
+    var act = owActive();
+    if ((!act.length && peek !== true) || !cfg || !V3.aes) return;
+    if (document.hidden) { if (act.length) owPlan(1500); return; }
+    var now = Date.now(), slowed = false;
+    act.forEach(function (oid) { var w = OW[oid]; if (now - w.t0 > FW_SLOW) { w.st = 'slow'; slowed = true; } });
+    if (slowed) owPaint();
+    var resend = owActive().some(function (oid) { return OW[oid].st === 'send' && OW[oid].net; });
+    (resend ? devWrite().then(function () { owActive().forEach(function (oid) { var w = OW[oid]; if (w.st === 'send') { w.st = 'sent'; w.net = 0; } }); owPaint(); }, function () {}) : Promise.resolve())
+      .then(function () { return ghCond('/gists/' + cfg.g); }).then(function (r) {
+        if (!r || r.status !== 200 || !r.json || !r.json.files) return;
+        var f = r.json.files['r_' + V3.did + '.json'], box = null;
+        try { box = JSON.parse((f && f.content) || 'null'); } catch (e) { box = null; }
+        if (!box || !box.ct) return;
+        return boxOpen(box, 'reply').then(function (rep) {
+          var changed = false;
+          ((rep && rep.items) || []).forEach(function (it) {
+            var w = it && OW[it.oid];
+            if (!w || w.st === 'done' || w.st === 'err') return;
+            if (it.st === 'done') { owDone(w, it.res || { ok: false, error: L('пустой ответ') }); changed = true; }
+            else if (it.st === 'got' && (w.st === 'send' || w.st === 'sent')) { w.st = 'got'; changed = true; }
+          });
+          if (changed) owPaint();
+        }, function () {});
+      }).catch(function () {}).then(function () { if (owActive().length) owPlan(FW_POLL); });
+  }
+  function ordPatchStatus(id, name) {
+    if (!name) return;
+    ((state && state.orders) || []).forEach(function (o) { if (o && String(o.id) === String(id)) o.status = name; });
+    ((state && state.extraOrders) || []).forEach(function (o) { if (o && String(o.id) === String(id)) o.status = name; });
+    ((arcData && arcData.rows) || []).forEach(function (a) { if (a && String(a[0]) === String(id)) a[6] = name; });
+  }
+  function owDone(w, res) {
+    w.res = res || {}; w.doneAt = Date.now();
+    opsSave(opsQueue().filter(function (o) { return o.oid !== w.oid; }));   // компьютер уже отметил команду выполненной
+    if (w.k === 'st') {
+      if (w.res.ok) {
+        w.st = 'done';
+        if (w.res.name) ordPatchStatus(w.id, w.res.name);   // название — как у админки (без него — придёт со снимком)
+        toast(L('✓ Заказ #{id}: «{s}»', { id: w.id, s: w.res.name || w.label || statusText(w.status) }));
+      } else {
+        w.st = 'err'; w.err = w.res.error || '';
+        toast(L('⚠ Статус заказа #{id} не сменился: {e}', { id: w.id, e: L(w.err || 'не вышло') }));
+      }
+    } else {
+      if (w.res.ok) { w.st = 'done'; detLocal[w.id] = { items: w.res.items || [], user: w.res.user || {}, at: Date.now() }; }
+      else { w.st = 'err'; w.err = w.res.error || ''; }
+    }
+    if (!owActive().length && _owCk) { clearTimeout(_owCk); _owCk = 0; }
+  }
+  // перерисовать заказы (список — без поля поиска: клавиатура iPhone не сбрасывается)
+  function owPaint() {
+    if (tab !== 'orders') return;
+    if (ordFocus) { render(); return; }
+    var l = document.getElementById('ordList');
+    if (l) l.innerHTML = ordListHtml();
+  }
+  function owStBox(w) {
+    if (!w) return '';
+    var now = Date.now(), lbl = w.label || statusText(w.status);
+    if (w.st === 'done') return (now - (w.doneAt || 0) < 60000) ? '<div class="owdone">✓ ' + esc(L('Статус сменён: «{s}»', { s: (w.res && w.res.name) || lbl })) + (w.res && w.res.ms ? ' · ' + esc(L('ответ за {s} с', { s: Math.max(1, Math.round(w.res.ms / 1000)) })) : '') + '</div>' : '';
+    if (w.st === 'err') return '<div class="owerr">⚠ ' + esc(L('Статус не сменился: {e}', { e: L(w.err || 'не вышло') })) + '</div>';
+    var slow = w.st === 'slow', st = w.st;
+    var s1 = st === 'send' ? (w.net ? '<div class="bad">⚠ ' + esc(L('Нет связи — повторяю отправку…')) + '</div>' : '<div class="cur">⏳ ' + esc(L('Отправляю…')) + '</div>') : '<div class="ok">✓ ' + esc(L('Отправлено')) + '</div>';
+    var s2 = st === 'got' ? '<div class="ok">✓ ' + esc(L('Компьютер получил')) + '</div>' : (st === 'send' ? '<div>' + esc(L('Компьютер получит')) + '</div>' : '<div class="cur">⏳ ' + esc(L('Жду, когда компьютер возьмёт…')) + '</div>');
+    var s3 = st === 'got' ? '<div class="cur">⏳ ' + esc(L('Меняет статус на сайте…')) + '</div>' : '<div>' + esc(L('Смена на сайте')) + '</div>';
+    return '<div class="owbox' + (slow ? ' fw-slow' : '') + '" id="owb-' + w.oid + '"><div class="fw-top">' + (slow ? '<span>⚠️</span>' : '<span class="fw-spin"></span>') + '<b>' + esc(L('Меняю статус на «{s}»', { s: lbl })) + '</b>'
+      + '<span class="fw-time" data-owt="' + esc(w.oid) + '">' + fwAgo(now - w.t0) + '</span></div>'
+      + (slow ? '' : '<div class="fw-bar"><i></i></div>')
+      + '<div class="fw-steps">' + s1 + s2 + s3 + '</div>'
+      + (slow ? '<div class="meta" style="margin-top:4px;">' + esc(L('Компьютер не ответил за 3 минуты. Он включён и браузер открыт? Команда сохранена — выполнится, когда компьютер её возьмёт.')) + '</div>' : '')
+      + '</div>';
+  }
+  // состав и клиент заказа не с первой страницы — просим у компьютера (ответ — за секунды)
+  function ordDetAsk(id) {
+    var op = { op: 'orderDetail', id: id, oid: 'o' + Date.now() + Math.floor(Math.random() * 10000), ts: Date.now() };
+    var qq = opsQueue(); qq.push(op); opsSave(qq);
+    owStart(op, 'det');
+  }
+  window.ordDetRetry = function (id) { ordDetAsked[id] = 1; ordDetAsk(id); owPaint(); };
+  function ordDetWaitHtml(w, id) {
+    if (w && w.st === 'done') return '<div class="meta" style="padding:8px 0;">' + esc(L('Позиции заказа не найдены.')) + '</div>';
+    if (w && w.st === 'err') return '<div class="owerr">⚠ ' + esc(L('Состав не загрузился: {e}', { e: L(w.err || 'не вышло') })) + ' <button class="chip" style="margin:6px 0 0;" onclick="ordDetRetry(' + id + ')">' + esc(L('Ещё раз')) + '</button></div>';
+    if (w && w.st === 'slow') return '<div class="owerr" style="background:#fff8f0;color:#8a5200;">' + esc(L('Компьютер не ответил — он включён и браузер открыт? Состав появится, когда компьютер его загрузит.')) + '</div>';
+    return '<div class="meta" style="padding:8px 0;">⏳ ' + esc(L('Загружаю состав и клиента с компьютера…')) + (w ? ' <span class="fw-time" data-owt="' + esc(w.oid) + '">' + fwAgo(Date.now() - w.t0) + '</span>' : '') + '</div>';
+  }
+  window.__veOW = function () { return OW; };   // для проверок
+
   /* ── TASKS ── */
   function taskCard(t, pend) {
     var st = pend[t.id] || t.status;
@@ -2439,7 +2609,8 @@
     var role = pend[o.id] ? ordRoleOfValue(pend[o.id]) : phRole(o.status);
     var oc = fdOrderCb(o.id), now0 = Date.now(), cbSt = ordCbSt(oc);
     // У «Перезвонить позже / Не ответил» показываем, что было на самом деле.
-    var stTxt = pend[o.id] ? (statusText(pend[o.id]) + ' · ' + L('отправляется…'))
+    var owS = owFor('st', o.id);   // v1.67.1: смена статуса — ход и итог
+    var stTxt = pend[o.id] ? (statusText(pend[o.id]) + ' · ' + L(owS && owS.st === 'got' ? 'меняю на сайте…' : 'отправляется…'))
       : (role === 'callback' && cbSt === 'noanswer') ? (L('📵 Не ответил') + (oc.miss ? ' ×' + oc.miss : ''))
       : (role === 'callback' && cbSt === 'later') ? L('⏰ Перезвонить позже')
       : (o.status || '');
@@ -2464,8 +2635,17 @@
     var stBadge = '<span class="badge ' + stCls + '">' + esc(stTxt) + '</span>';
     var open = !!ordOpen[o.id];
     var detHtml = '';
+    // v1.67.1: адрес и комментарий клиента — сразу на карточке (раскрывать заказ не нужно)
+    var dd0 = detLocal[o.id] || details[o.id], du0 = dd0 && dd0.user, addrHtml = '';
+    if (du0 && !open) {
+      var place0 = du0.region != null ? [du0.city || du0.region, (du0.region && du0.city && du0.region !== du0.city) ? du0.region : ''].filter(Boolean).join(', ') : '';
+      var adr0 = du0.region != null ? [place0, du0.street].filter(Boolean).join(' · ') : (du0.address || '');
+      if (adr0) addrHtml += '<div class="meta oaddr">📍 ' + esc(adr0) + '</div>';
+      if (du0.comment) { var cm0 = String(du0.comment).replace(/\s+/g, ' '); addrHtml += '<div class="meta ocmt">💬 ' + esc(cm0.length > 90 ? cm0.slice(0, 88) + '…' : cm0) + '</div>'; }
+    }
+    var stBox = owStBox(owS);
     if (open) {
-      var d = details[o.id];
+      var d = detLocal[o.id] || details[o.id];   // v1.67.1: загруженный по просьбе телефона — свежее
       if (d && d.user) detHtml += ordCliHtml(d.user);   // v1.67: клиент — каждое поле отдельно
       if (d && d.items && d.items.length) {
         var total = 0, gmap = {};
@@ -2487,9 +2667,11 @@
         else if (os && os.it && os.it.length) detHtml += os.it.map(function (r) {
           return '<div class="oit"><span class="n">' + esc(r[5] || r[0]) + '<br><span style="color:#999;font-size:11px;">' + esc(r[0]) + ' · ' + esc(L('нужно {n}', { n: fmtQ(r[3]) })) + '</span>' + ostMark(r) + '</span></div>';
         }).join('') + ostNote(os);
-        var asked = ordDetAsked[o.id] || opsQueue().some(function (x) { return x.op === 'orderDetail' && x.id === o.id; });
-        if (!asked && typeof opPush === 'function' && can('orders')) { ordDetAsked[o.id] = 1; setTimeout(function () { opPush({ op: 'orderDetail', id: o.id }); }, 0); }
-        detHtml += '<div class="meta" style="padding:8px 0;">' + esc(L('Состав ещё не загружен с компьютера — появится после ближайшей синхронизации.')) + '</div>';
+        // v1.67.1: просим у компьютера быстрым путём — состав и клиент придут за секунды, с ходом и таймером
+        var wDet = owFor('det', o.id);
+        var asked = wDet || ordDetAsked[o.id] || opsQueue().some(function (x) { return x.op === 'orderDetail' && x.id === o.id; });
+        if (!asked && can('orders')) { ordDetAsked[o.id] = 1; setTimeout(function () { ordDetAsk(o.id); owPaint(); }, 0); }
+        detHtml += ordDetWaitHtml(wDet, o.id);
       }
       var fanAl = ordFanAlarm(dl, o.id);
       if (dl && dl.awb && fanAl && (dl.sev === 'red' || dl.sev === 'warn')) {
@@ -2536,9 +2718,11 @@
       }
       }
     }
-    return '<div class="card' + (pend[o.id] ? ' pending' : '') + '" >' + stBadge + cbBadge +
+    // ход смены виден в карточке — её не «гасим» (прежний вид «отправляется…» — только без хода)
+    var showsOw = !!(owS && (owLive(owS) || owS.st === 'slow'));
+    return '<div class="card' + (pend[o.id] && !showsOw ? ' pending' : '') + '" id="oc-' + esc(String(o.id)) + '">' + stBadge + cbBadge +
       '<div class="ttl" onclick="ordToggle(' + o.id + ')">#' + esc(String(o.id)) + ' · ' + esc(o.name || o.type || '') + ' <span style="color:#bbb;font-weight:400;">' + (open ? '▲' : '▼') + '</span></div>' +
-      (meta.length ? '<div class="meta">' + meta.join(' &nbsp;·&nbsp; ') + '</div>' : '') + detHtml + '</div>';
+      (meta.length ? '<div class="meta">' + meta.join(' &nbsp;·&nbsp; ') + '</div>' : '') + addrHtml + stBox + detHtml + '</div>';
   }
   // Список под полем поиска — отдельно: при наборе в поиске обновляется только он, а само поле
   // не пересоздаётся (иначе iPhone после каждой буквы сбрасывает клавиатуру).
@@ -2575,6 +2759,7 @@
   }
   function renderOrders(box) {
     if (state && state.arc && typeof arcLoad === 'function') arcLoad();
+    owResume();   // v1.67.1: смена статуса / состав, начатые до перезапуска, — ждём ответ дальше
     // экран ОДНОГО заказа: раскрыт, с составом и «чего не хватает»
     if (ordFocus) {
       var fo = ordFind(ordFocus);
@@ -2633,15 +2818,17 @@
     var what = out === 'noanswer' ? L(' (не ответил{x})', { x: miss > 1 ? L(', {n}-й раз подряд', { n: miss }) : '' }) : (out === 'later' ? L(' (перезвонить {t})', { t: fdWhen(at) }) : '');
     if (!confirm(L('Сменить статус заказа #{id} на «{s}»', { id: id, s: statusText(sel.value) }) + what + '?'
       + (third ? '\n\n' + L('Это 3-й недозвон подряд — компьютер отменит заказ (причина «Не дозвонились»).') : ''))) return;
-    var op = { op: 'orderStatus', id: id, status: sel.value };
+    // v1.67.1: смена статуса — быстрым путём, с ходом и итогом в карточке заказа (обновлять страницу не нужно)
+    var op = { op: 'orderStatus', id: id, status: sel.value, oid: 'o' + Date.now() + Math.floor(Math.random() * 10000), ts: Date.now() };
     if (reason) op.reason = reason;
-    opPush(op);
+    var qq = opsQueue(); qq.push(op); opsSave(qq);
     // Перезвон — как на компьютере: «Не ответил» — счётчик подряд +1 и через час;
     // «Перезвонить позже» — в выбранное время; любой другой — напоминание больше не нужно.
     if (out) ordCbPush(id, o, out, at, miss);
     else if (c.at || c.miss) opPush({ op: 'callback', kind: 'order', id: id, at: 0, miss: 0 });
+    owStart(op, 'st', { status: sel.value, label: statusText(sel.value) });
     render();
-    toast(third ? L('📵 3-й недозвон — компьютер отменит заказ в течение минуты') : L('🛒 Отправлено — компьютер применит в течение минуты'));
+    if (third) toast(L('📵 3-й недозвон — компьютер отменит заказ в течение минуты'));
   };
   // Статус уже «Перезвонить позже / Не ответил» (поставили в админке) — отмечаем, что было.
   window.ordCbOut = function (id, out) {
@@ -2839,7 +3026,28 @@
   }
   function fdNote(phone) { var n = ((state && state.notes) || {})[fdP8(phone)]; return n ? '<span class="ctx">📝 ' + esc(n.length > 70 ? n.slice(0, 68) + '…' : n) + '</span>' : ''; }
   function fdCallBtn(phone, id) { return phone ? '<a class="b b-call" href="' + telHref(phone) + '"' + (id ? ' onclick="fdCalled(' + id + ')"' : '') + '>' + esc(L('📞 Позвонить')) + '</a>' : ''; }
+  // v1.67.1: «товар пришёл» / «сообщили — ждём ответа» — своя карточка: вверху что случилось, заголовок —
+  // товар (раньше «—»: имени клиента в задаче обычно нет), ниже клиент и телефон, три кнопки одной ширины
+  function fdWatchCard(it, now) {
+    var ready = it.why === 'ready', due = it.at && it.at <= now;
+    var oid = parseInt(it.orderId, 10) || 0;
+    var head = ready ? '<span class="wchip">📦 ' + esc(L('Товар пришёл — можно звонить')) + '</span>' : '<div class="why" style="margin:0 0 6px;">' + fdWhy(it, now) + '</div>';
+    var meta = [];
+    if (it.name) meta.push('👤 ' + esc(it.name));
+    if (it.phone) meta.push('📞 <a href="' + telHref(it.phone) + '">' + esc(it.phone) + '</a>');
+    if (oid) meta.push('<a href="#" onclick="fdOrder(' + oid + ');return false;">🧩 ' + esc(L('заказ #{id}', { id: oid })) + '</a>');
+    var btns = fdCallBtn(it.phone, 0), sms = fdStockSms(it.id);
+    if (sms) btns += '<a class="b b-sms" href="' + sms + '">' + esc(L('✉️ SMS')) + '</a>';
+    btns += ready ? '<button class="b b-done" onclick="fdInformed(\'' + it.id + '\')">' + esc(L('📣 Сообщил')) + '</button>'
+      : '<button class="b b-done" onclick="opStatus(\'' + it.id + '\',\'done\')">' + esc(L('✅ Готово')) + '</button>';
+    return '<div class="card k-watch' + (due ? ' due' : '') + (it._pending ? ' pending' : '') + '">' + head
+      + '<div class="wttl">' + esc(it.product || L('товар')) + '</div>'
+      + (meta.length ? '<div class="meta" style="margin-top:4px;">' + meta.join(' &nbsp;·&nbsp; ') + '</div>' : '')
+      + fdNote(it.phone)
+      + '<div class="row r3">' + btns + '</div></div>';
+  }
   function fdTodayCard(it, now) {
+    if (it.kind === 'watch') return fdWatchCard(it, now);
     var due = it.at && it.at <= now;
     var src = it.kind === 'feed' ? L('заявка #{id}', { id: esc(it.id) }) : it.kind === 'order' ? L('заказ #{id}', { id: esc(it.id) }) : it.kind === 'watch' ? L('отслеживание')
       : it.kind === 'parcel' ? L('посылка · заказ #{id}', { id: esc(it.id) }) : it.kind === 'cod' ? L('наложенный · заказ #{id}', { id: esc(it.id) }) : it.kind === 'invoice' ? L('счёт · заказ #{id}', { id: esc(it.id) }) : L('задача');
@@ -3600,6 +3808,15 @@
     opsSave(q);
     // v1.67: ответ на «найти» пришёл и в снимке (раньше, чем телефон прочёл файл ответа)
     if (FW && FW.st !== 'done' && state.find && state.find.reqOid === FW.oid) fwDone(state.find);
+    // v1.67.1: смена статуса / состав — компьютер выполнил, а файл ответа телефон не успел прочесть
+    Object.keys(OW).forEach(function (oid) {
+      var w = OW[oid];
+      if (!confirmed[oid] || !(owLive(w) || w.st === 'slow')) return;
+      var er = (state.opErr || {})[oid], dt = (state.orderDetails || {})[w.id];
+      if (er && er.msg) owDone(w, { ok: false, error: er.msg });
+      else if (w.k === 'st') owDone(w, { ok: true, name: '' });
+      else owDone(w, dt ? { ok: true, items: dt.items, user: dt.user } : { ok: false, error: '' });
+    });
     // визиты, которые компьютер уже записал, — убрать
     var sa = (state.me && state.me.seenAt) || 0;
     if (sa) { var v = visits().filter(function (x) { return x.at > sa; }); try { localStorage.setItem('vp_visits', JSON.stringify(v)); } catch (e) {} }
@@ -3960,6 +4177,7 @@
   document.addEventListener('visibilitychange', function () {
     if (document.hidden || !cfg || !V3.aes) return;
     if (FW && FW.st !== 'done') { if (FW.st === 'slow') fwTick(true); else fwPlan(50); }   // v1.67: вернулись в приложение — сразу проверить ответ
+    if (owActive().length) owPlan(50); else if (Object.keys(OW).some(function (k) { return OW[k].st === 'slow'; })) owTick(true);   // v1.67.1
     noteVisit().then(function (fresh) { if (fresh) devWrite().catch(function () {}); });
     if (Date.now() - _lastRef > 8000) window.refresh(true);
     // Вернулись после звонка клиенту по заявке — сразу лист «что получилось».
