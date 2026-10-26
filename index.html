@@ -460,7 +460,7 @@
 <script>
 (function () {
   'use strict';
-  var PAGE_VER = '1.67.1';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
+  var PAGE_VER = '1.67.2';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
   var API = 'https://api.github.com';
   /* ── v1.62: язык приложения (RU / RO). L('русский текст', {n: 5}) — перевод по
      словарю RO (ключ — сам русский текст), {n} — подстановки. Нет в словаре — по-русски. ── */
@@ -1082,7 +1082,8 @@
     'сайт не принял смену статуса': 'site-ul nu a acceptat schimbarea statusului',
     'заказ не прочитался': 'comanda nu s-a citit',
     'нет ответа': 'niciun răspuns',
-    'пустая команда': 'comandă goală'
+    'пустая команда': 'comandă goală',
+    'Загружаю данные клиента с компьютера…': 'Încarc datele clientului de la calculator…'
   };
   function L(s, v) {
     var t = (LANG === 'ro' && RO[s]) ? RO[s] : s;
@@ -2646,6 +2647,14 @@
     var stBox = owStBox(owS);
     if (open) {
       var d = detLocal[o.id] || details[o.id];   // v1.67.1: загруженный по просьбе телефона — свежее
+      // v1.67.2: состав есть, а клиент пустой (разобран старой версией компьютера) — попросить свежий сразу
+      var du1 = d && d.user, uEmpty = d && !(du1 && (du1.name || du1.phone || du1.email || du1.address || du1.street));
+      var wCli = owFor('det', o.id);
+      if (uEmpty && !detLocal[o.id] && !wCli && !ordDetAsked[o.id] && can('orders')) { ordDetAsked[o.id] = 1; setTimeout(function () { ordDetAsk(o.id); owPaint(); }, 0); }
+      if (uEmpty && (!wCli ? ordDetAsked[o.id] : owLive(wCli))) {
+        detHtml += '<div class="meta" style="padding:4px 0 8px;">⏳ ' + esc(L('Загружаю данные клиента с компьютера…'))
+          + (wCli ? ' <span class="fw-time" data-owt="' + esc(wCli.oid) + '">' + fwAgo(Date.now() - wCli.t0) + '</span>' : '') + '</div>';
+      }
       if (d && d.user) detHtml += ordCliHtml(d.user);   // v1.67: клиент — каждое поле отдельно
       if (d && d.items && d.items.length) {
         var total = 0, gmap = {};
