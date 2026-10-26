@@ -460,7 +460,7 @@
 <script>
 (function () {
   'use strict';
-  var PAGE_VER = '1.67.2';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
+  var PAGE_VER = '1.67.3';   // bumped with the extension version — mismatch vs state.appVer shows the update banner
   var API = 'https://api.github.com';
   /* ── v1.62: язык приложения (RU / RO). L('русский текст', {n: 5}) — перевод по
      словарю RO (ключ — сам русский текст), {n} — подстановки. Нет в словаре — по-русски. ── */
@@ -1083,7 +1083,14 @@
     'заказ не прочитался': 'comanda nu s-a citit',
     'нет ответа': 'niciun răspuns',
     'пустая команда': 'comandă goală',
-    'Загружаю данные клиента с компьютера…': 'Încarc datele clientului de la calculator…'
+    'Загружаю данные клиента с компьютера…': 'Încarc datele clientului de la calculator…',
+    // v1.67.3: заказ, которого у телефона ещё нет (открыли из уведомления)
+    'Загружаю заказ с компьютера…': 'Încarc comanda de la calculator…',
+    'Заказ не загрузился: {e}': 'Comanda nu s-a încărcat: {e}',
+    'Компьютер не ответил — он включён и браузер открыт? Заказ появится, когда компьютер его загрузит.': 'Calculatorul nu a răspuns — e pornit și browserul deschis? Comanda apare când calculatorul o încarcă.',
+    '— текущий: «{s}» —': '— actual: «{s}» —',
+    '— статус ещё не загружен —': '— statusul încă nu s-a încărcat —',
+    '⚠ Выбери новый статус': '⚠ Alege statusul nou'
   };
   function L(s, v) {
     var t = (LANG === 'ro' && RO[s]) ? RO[s] : s;
@@ -1164,10 +1171,13 @@
   }
   function ordStList() {
     var l = (state && Array.isArray(state.ordSt) && state.ordSt.length) ? state.ordSt : ORD_ST_DEF;
-    return l.filter(function (s) { return s && s.v; }).map(function (s) {
-      var site = String(s.site || s.v);
-      return { v: String(s.v), site: site, role: s.role || phRole(site), t: site };
-    });
+    // v1.67.3: порядок — постоянный, по ролям (список с компьютера прежних версий начинался с текущего
+    // статуса первого заказа админки — например «Доставлен»)
+    var rank = { 'new': 0, approved: 1, delivery: 2, callback: 3, delivered: 4, cancelled: 5 };
+    return l.filter(function (s) { return s && s.v; }).map(function (s, i) {
+      var site = String(s.site || s.v), role = s.role || phRole(site);
+      return { v: String(s.v), site: site, role: role, t: site, k: (rank[role] == null ? 9 : rank[role]) * 100 + i };
+    }).sort(function (a, b) { return a.k - b.k; });
   }
   function ordStByValue(v) { return ordStList().filter(function (s) { return s.v === v; })[0] || null; }
   function ordRoleValue(role) {
@@ -1235,10 +1245,11 @@
   function telHref(p) { return 'tel:' + String(p || '').replace(/[^+\d]/g, ''); }
   // v1.67: клиент заказа — каждое поле отдельно (имя, телефон, почта, регион, город/село, адрес, комментарий).
   // Раньше «адресом» бывал комментарий: колонка «Комментарий» в админке есть только у заказа с комментарием.
-  function ordCliHtml(u) {
-    u = u || {};
-    if (!u.name && !u.phone && !u.email && !u.address && !u.comment) return '';
-    var split = u.region != null || u.city != null || u.street != null;
+  function ordCliHtml(u0) {
+    u0 = u0 || {};
+    var split = u0.region != null || u0.city != null || u0.street != null, u = {};
+    ['name', 'email', 'phone', 'comment', 'region', 'city', 'street', 'address'].forEach(function (k) { u[k] = cliVal(u0[k]); });   // v1.67.3: «Отсутствует» → «—»
+    if (!u.name && !u.phone && !u.email && !u.address && !u.comment && !u.street) return '';
     var row = function (k, v, html) { return '<div class="cl-r"><span class="cl-k">' + esc(L(k)) + '</span><span class="cl-v' + (v ? '' : ' cl-e') + '">' + (v ? (html || esc(v)) : '—') + '</span></div>'; };
     return '<div class="cli">'
       + row('Имя', u.name)
@@ -2329,7 +2340,7 @@
         toast(L('⚠ Статус заказа #{id} не сменился: {e}', { id: w.id, e: L(w.err || 'не вышло') }));
       }
     } else {
-      if (w.res.ok) { w.st = 'done'; detLocal[w.id] = { items: w.res.items || [], user: w.res.user || {}, at: Date.now() }; }
+      if (w.res.ok) { w.st = 'done'; detLocal[w.id] = { items: w.res.items || [], user: w.res.user || {}, order: w.res.order || null, at: Date.now() }; }
       else { w.st = 'err'; w.err = w.res.error || ''; }
     }
     if (!owActive().length && _owCk) { clearTimeout(_owCk); _owCk = 0; }
@@ -2364,6 +2375,21 @@
     owStart(op, 'det');
   }
   window.ordDetRetry = function (id) { ordDetAsked[id] = 1; ordDetAsk(id); owPaint(); };
+  // v1.67.3: заказа ещё нет у телефона — просим его быстрым путём и заодно освежаем данные (компьютер
+  // при новом заказе выкладывает их сразу)
+  var _ordLoadRef = {};
+  function ordLoadingCardHtml(id) {
+    var w = owFor('det', id);
+    if (!w && !ordDetAsked[id] && can('orders')) { ordDetAsked[id] = 1; setTimeout(function () { ordDetAsk(id); owPaint(); }, 0); }
+    if (!_ordLoadRef[id]) { _ordLoadRef[id] = 1; setTimeout(function () { if (!ordFind(id).id) window.refresh(true); }, 6000); }
+    var body = (w && w.st === 'err') ? '<div class="owerr">⚠ ' + esc(L('Заказ не загрузился: {e}', { e: L(w.err || 'не вышло') })) + ' <button class="chip" style="margin:6px 0 0;" onclick="ordDetRetry(' + id + ')">' + esc(L('Ещё раз')) + '</button></div>'
+      : (w && w.st === 'slow') ? '<div class="owerr" style="background:#fff8f0;color:#8a5200;">' + esc(L('Компьютер не ответил — он включён и браузер открыт? Заказ появится, когда компьютер его загрузит.')) + '</div>'
+      : '<div class="meta" style="padding:6px 0;"><span class="fw-spin" style="display:inline-block;vertical-align:-3px;margin-right:6px;"></span>' + esc(L('Загружаю заказ с компьютера…'))
+        + (w ? ' <span class="fw-time" data-owt="' + esc(w.oid) + '">' + fwAgo(Date.now() - w.t0) + '</span>' : '') + '</div>';
+    return '<div class="card" id="oc-' + esc(String(id)) + '"><div class="ttl">#' + esc(String(id)) + '</div>' + body + '</div>';
+  }
+  // «Отсутствует» и прочие заглушки админки — пустое значение (у заказов, разобранных до v1.67.3)
+  function cliVal(v) { v = String(v == null ? '' : v).trim(); return /^(отсутствует|не указан[оа]?|нет|lipse[șs]te|-+|—)$/i.test(v) ? '' : v; }
   function ordDetWaitHtml(w, id) {
     if (w && w.st === 'done') return '<div class="meta" style="padding:8px 0;">' + esc(L('Позиции заказа не найдены.')) + '</div>';
     if (w && w.st === 'err') return '<div class="owerr">⚠ ' + esc(L('Состав не загрузился: {e}', { e: L(w.err || 'не вышло') })) + ' <button class="chip" style="margin:6px 0 0;" onclick="ordDetRetry(' + id + ')">' + esc(L('Ещё раз')) + '</button></div>';
@@ -2453,6 +2479,14 @@
     var rest = [];
     ((state && state.extraOrders) || []).forEach(function (o) { if (o && o.id && !have[o.id]) { have[o.id] = 1; rest.push(Object.assign({ arc: 1 }, o)); } });
     ((arcData && arcData.rows) || []).forEach(function (a) { if (a && a[0] && !have[a[0]]) { have[a[0]] = 1; rest.push(ordArcRow(a)); } });
+    // v1.67.3: заказ, загруженный быстрым путём (его ещё нет в данных с компьютера) — из «Order info» и клиента
+    Object.keys(detLocal).forEach(function (k) {
+      var dl = detLocal[k], od = (dl && dl.order) || {}, id = parseInt(k, 10), u = (dl && dl.user) || {};
+      // без строки заказа (компьютер старой версии) — хотя бы клиент и состав; статус тогда неизвестен
+      if (!id || have[id] || !(od.status || cliVal(u.name) || cliVal(u.phone) || (dl.items || []).length)) return;
+      have[id] = 1;
+      rest.push({ id: id, type: od.type || '', name: cliVal(u.name) || od.type || '', phone: cliVal(u.phone), date: od.date || '', price: od.price || '', status: od.status || '', delivery: od.delivery || '', payment: od.payment || '', arc: 1 });
+    });
     rest.sort(function (a, b) { return b.id - a.id; });
     return out.concat(rest);
   }
@@ -2633,16 +2667,17 @@
     var crTxt = ((state && state.cr) || {})[o.id];
     if (crTxt) meta.push('✖ ' + esc(crTxt));
     var stCls = role === 'callback' ? (cbSt === 'later' ? 'bg-o-later' : 'bg-o-noans') : (ROLE_CLS[role] || 'bg-done');
-    var stBadge = '<span class="badge ' + stCls + '">' + esc(stTxt) + '</span>';
+    var stBadge = stTxt ? '<span class="badge ' + stCls + '">' + esc(stTxt) + '</span>' : '';   // v1.67.3: статус неизвестен — без пустой «таблетки»
     var open = !!ordOpen[o.id];
     var detHtml = '';
     // v1.67.1: адрес и комментарий клиента — сразу на карточке (раскрывать заказ не нужно)
     var dd0 = detLocal[o.id] || details[o.id], du0 = dd0 && dd0.user, addrHtml = '';
     if (du0 && !open) {
-      var place0 = du0.region != null ? [du0.city || du0.region, (du0.region && du0.city && du0.region !== du0.city) ? du0.region : ''].filter(Boolean).join(', ') : '';
-      var adr0 = du0.region != null ? [place0, du0.street].filter(Boolean).join(' · ') : (du0.address || '');
+      var rg0 = cliVal(du0.region), ct0 = cliVal(du0.city), sr0 = cliVal(du0.street), cmt0 = cliVal(du0.comment);   // v1.67.3: «Отсутствует» — не адрес
+      var place0 = du0.region != null ? [ct0 || rg0, (rg0 && ct0 && rg0 !== ct0) ? rg0 : ''].filter(Boolean).join(', ') : '';
+      var adr0 = du0.region != null ? [place0, sr0].filter(Boolean).join(' · ') : cliVal(du0.address);
       if (adr0) addrHtml += '<div class="meta oaddr">📍 ' + esc(adr0) + '</div>';
-      if (du0.comment) { var cm0 = String(du0.comment).replace(/\s+/g, ' '); addrHtml += '<div class="meta ocmt">💬 ' + esc(cm0.length > 90 ? cm0.slice(0, 88) + '…' : cm0) + '</div>'; }
+      if (cmt0) { var cm0 = String(cmt0).replace(/\s+/g, ' '); addrHtml += '<div class="meta ocmt">💬 ' + esc(cm0.length > 90 ? cm0.slice(0, 88) + '…' : cm0) + '</div>'; }
     }
     var stBox = owStBox(owS);
     if (open) {
@@ -2701,6 +2736,8 @@
       var selSt = 'width:100%;margin-top:8px;font-family:inherit;font-size:16px;padding:10px;border-radius:10px;';
       detHtml += '<label class="lbl">' + esc(L('Статус заказа')) + '</label>' +
         '<select id="ost-' + o.id + '" onchange="ordStSel(' + o.id + ')" style="width:100%;font-family:inherit;font-size:16px;padding:10px;border:1px solid #ddd;border-radius:10px;background:#fafaf8;">' +
+        // v1.67.3: статус неизвестен / не узнан — не подставляем первый попавшийся (был «Доставлен» у нового заказа)
+        (selV ? '' : '<option value="" selected disabled>' + esc(o.status ? L('— текущий: «{s}» —', { s: o.status }) : L('— статус ещё не загружен —')) + '</option>') +
         stl.map(function (s) { return '<option value="' + esc(s.v) + '"' + (s.v === selV ? ' selected' : '') + '>' + esc(s.t) + '</option>'; }).join('') +
         '</select>' +
         // Отмена — с причиной (v1.50), для «Недели в цифрах». Тот же список, что в панели.
@@ -2772,11 +2809,12 @@
     // экран ОДНОГО заказа: раскрыт, с составом и «чего не хватает»
     if (ordFocus) {
       var fo = ordFind(ordFocus);
-      if (!fo || fo.id == null) fo = { id: ordFocus, name: '', status: '', arc: 1 };
+      var back = '<div class="chips"><button class="chip on" onclick="ordFocusOff()">← ' + esc(L('Все заказы')) + '</button></div>';
+      // v1.67.3: заказа у телефона ещё нет (открыли из уведомления о новом заказе раньше, чем пришли данные) —
+      // не рисуем пустую карточку с чужим статусом: «загружаю», заказ (статус, клиент, состав) — быстрым путём
+      if (!fo || fo.id == null) { box.innerHTML = back + ordLoadingCardHtml(ordFocus); return; }
       ordOpen[fo.id] = true;
-      box.innerHTML = '<div class="chips"><button class="chip on" onclick="ordFocusOff()">← ' + esc(L('Все заказы')) + '</button></div>'
-        + ordCardHtml(fo, ordPendStatus(), (state && state.deliv) || {}, (state && state.orderDetails) || {})
-        + (fo.name || fo.phone ? '' : '<div class="note" style="text-align:center;">' + esc(L('Данные заказа подтягиваются из архива…')) + '</div>');
+      box.innerHTML = back + ordCardHtml(fo, ordPendStatus(), (state && state.deliv) || {}, (state && state.orderDetails) || {});
       return;
     }
     var all = ordAll(), list = (state && state.orders) || [];
@@ -2814,7 +2852,8 @@
   }
   window.ordApplyStatus = function (id) {
     var sel = document.getElementById('ost-' + id);
-    if (!sel || !sel.value) return;
+    if (!sel) return;
+    if (!sel.value) { toast(L('⚠ Выбери новый статус')); return; }
     var role = ordRoleOfValue(sel.value);
     var crSel = document.getElementById('ocr-' + id), reason = (crSel && role === 'cancelled') ? crSel.value : '';
     if (role === 'cancelled' && !reason) { if (crSel) crSel.style.display = ''; toast(L('✖ Выбери, почему отменили')); return; }
@@ -4202,7 +4241,8 @@
     if (d.vp === 'push') setTimeout(function () { window.refresh(true); }, 1500);
     if (d.vp === 'open' && d.tab) {
       if (d.tab === 'devs') { openDevs(String(d.id || '')); window.refresh(true); }   // v1.64: «просит доступ»
-      else if (d.tab === 'orders' && d.id) fdOrder(parseInt(d.id, 10) || 0); else setTab(d.tab);
+      // v1.67.3: из уведомления о новом заказе — и сразу свежие данные (заказа в телефоне может ещё не быть)
+      else if (d.tab === 'orders' && d.id) { fdOrder(parseInt(d.id, 10) || 0); window.refresh(true); } else setTab(d.tab);
     }
   });
   boot();
