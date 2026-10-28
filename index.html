@@ -1451,8 +1451,13 @@
     op.oid = 'o' + Date.now() + Math.floor(Math.random() * 10000);
     op.ts = Date.now();
     var q = opsQueue(); q.push(op); opsSave(q);
-    sendOps();
+    sendOpsSoon();
   }
+  // v1.67.4: отметки подряд (20 × «сумма верна») — одной записью через 1,5 с, а не записью на каждую:
+  // запись в GitHub ограничена. Ушли из приложения — отправляем сразу. (Поиск и смена статуса — без ожидания.)
+  var _sendT = 0;
+  function sendOpsSoon() { if (!_sendT) _sendT = setTimeout(function () { _sendT = 0; sendOps(); }, 1500); }
+  document.addEventListener('visibilitychange', function () { if (document.hidden && _sendT) { clearTimeout(_sendT); _sendT = 0; sendOps(); } });
   function visits() { try { var v = JSON.parse(localStorage.getItem('vp_visits') || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
   function devName() { return localStorage.getItem('vp_dev_name') || ''; }
   function guessModel() {
